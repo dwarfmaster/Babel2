@@ -1,0 +1,35 @@
+form;lemma;lex-class;sem-class;gender;person;case;number;meaning
+eu;eu;personal;;;1;nominative;singular;person me
+me;eu;clitic;;;1;accusative dative;singular;
+minha;meu;possessive;;feminine;1;;singular;
+mim;eu;clitic;;;1;prepositional-object;singular;
+tu;tu;personal;;;2;nominative;singular;person you
+te;tu;clitic;;;2;accusative dative;singular;
+ti;tu;clitic;;;2;prepositional-object;singular;
+ele;ele;personal;;masculine;3;nominative;singular;physical-object him
+ela;ela;personal;;feminine;3;nominative;singular;physical-object her
+o;ele;clitic;;masculine;3;accusative;singular;
+a;ela;clitic;;feminine;3;accusative;singular;
+lhe;ele;clitic;;?gender;3;dative;singular;
+ele;ele;clitic;;masculine;3;prepositional-object;singular;
+dele;;demonstrative;;masculine;3;dative;singular;possessor him
+dela;;demonstrative;;feminine;3;dative;singular;possessor her
+nos;nos;personal;;;1;nominative;plural;person we
+nos;nos;clitic;;;1;accusative dative;plural;person we
+voces;voces;personal;;;2;nominative;plural;person you-plural
+vos;voces;clitic;;;2;dative accusative;plural;
+eles;eles;personal;;masculine;3;nominative;plural;physical-object they-masculine
+elas;elas;personal;;feminine;3;nominative;plural;physical-object they-feminine
+os;eles;clitic;;masculine;3;accusative;plural;
+as;elas;clitic;;feminine;3;accusative;plural;
+lhes;eles;clitic;;masculine;3;dative;plural;
+lhes;elas;clitic;;feminine;3;dative;plural;
+se;;reflexive ;;?gender;3;;?number;itself
+isto;;demonstrative;;;3;;singular;referent-nearby
+isso;;demonstrative;;;3;;singular;referent-close-to-you
+quem;quem;relative;person;;3;nominative accusative;?number;undefined-referent
+a_quem;quem;relative;person;;3;dative;?number;
+quanto;;relative;quantity;;3;nominative accusative;?number;undefined-quantity
+quando;;relative;time;;;;;undefined-time
+onde;;relative;place;;;;;undefined-place
+o_que;o_que;relative;thing;;3;accusative;?number;undefined-thing

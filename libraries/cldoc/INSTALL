@@ -1,0 +1,18 @@
+Install instructions for CLDOC. We assume that if you have gotten
+this far, it means that you have either extracted a tar file with
+everything in it, or checked out the files from some CVS repository.
+      
+1. Start Lisp either from the shell or from Emacs
+
+2. (load "cldoc.asd")
+
+   This command will load the system definition file containing system
+   definitions for ASDF. 
+
+3. (asdf:operate 'asdf:load-op :cldoc)
+
+   This command will compile and load the source files in the right
+   order.
+
+4. See cldoc:extract-documentation generic function documentation in
+   the doc/html directory.

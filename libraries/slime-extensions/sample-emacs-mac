@@ -1,0 +1,75 @@
+;;; -*- emacs-lisp -*-
+
+;; MAKE SURE THIS IS CORRECT:
+(add-to-list 'load-path "~/slime")
+
+(require 'slime)
+(slime-setup '(slime-repl slime-autodoc slime-fancy-inspector))
+
+;; MAKE SURE THIS IS CORRECT:
+(setq inferior-lisp-program "~/ccl/dx86cl")
+;; use this on a 64Bit Mac
+;;(setq inferior-lisp-program "~/ccl/dx86cl64")
+(command-execute 'slime)
+
+;; Configure the path to slime-extensions
+;; (default: Babel2/sharing/slime-extensions)
+;; MAKE SURE THIS IS CORRECT:
+(setf slime-extensions-path "~/Babel2/sharing/slime-extensions")
+
+;;; ---- ALL FOLLOWING SETTINGS DO NOT NEED TO BE ADAPTED ----
+
+;; Load the babel-mode / slime-extensions configurations ... also an emacs
+;; customization group in "Programming/"
+(add-to-list 'load-path slime-extensions-path)
+(require 'slime-extensions-config)
+
+;; Due to complications in the auto-complete-config this needs
+;; to be executed after babel-mode-config, but before
+;; custom-set-variables!
+(add-to-list 'load-path (concat slime-extensions-path "/utils/ac"))
+(require 'auto-complete-config)
+
+(custom-set-variables
+ ;; Set the base-path to slime-extensions
+ '(se-base-path slime-extensions-path)
+ ;; Use slime-extensions settings to configure auto-completion
+ ;; This affects the following block of settings:
+ ;; --------------------
+ '(se-use-custom-ac-config t)
+ ;; Use slime-ac in all lisp-modes (t) or only in babel-mode (nil)
+ '(se-use-sources-in-lisp-modes t)
+ ;; Use the standard ac-modes (e.g. other programming languages)
+ '(se-use-standard-ac-modes nil)
+ ;; Enables auto-complete for these additional major modes...
+ '(se-add-to-ac-modes (quote (lisp-mode babel-mode lisp-interaction-mode inferior-lisp-mode)))
+ ;; Major modes slime-fed auto-complete can run on
+ '(se-slime-ac-modes (quote (lisp-mode babel-mode lisp-interaction-mode inferior-lisp-mode)))
+ ;; Set ac-sources that are used in all major-modes...
+ ;'(se-global-ac-sources (quote (ac-source-abbrev ac-source-dictionary ac-source-words-in-same-mode-buffers ac-source-words-in-all-buffer)))
+ ;; Define custom ac-sources...
+ ;'(se-slime-ac-sources (quote (ac-source-dictionary ac-source-files-in-current-dir ac-source-features ac-source-functions ac-source-variables ac-source-yasnippet ac-source-symbols ac-source-slime)))
+ ;; --------------------
+ ;; Show line-numbers in every file?
+ '(se-global-line-numbers t)
+ ;; Highlight parentheses permanently?
+ '(se-cparen-lisp-modes t)
+ ;; General settings:
+ '(show-paren-mode t)
+ '(size-indication-mode t)
+ '(tool-bar-mode nil)
+ '(transient-mark-mode t)
+ '(column-number-mode t)
+ '(indent-tabs-mode nil)
+ '(make-backup-files nil))
+
+;; This actually loads the slime-extensions...
+(require 'slime-extensions)
+
+(set-face-foreground 'font-lock-string-face "navy")
+
+(setq mac-allow-anti-aliasing t)
+(require 'mac-key-mode)
+(mac-key-mode 1)
+(pc-selection-mode 1)
+(setq mac-option-modifier 'meta)

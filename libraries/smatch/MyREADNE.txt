@@ -1,0 +1,22 @@
+To run the smatch score to obtain the f-score:
+python smatch.py -m 'parsed meaning network' 'expected meaning network'
+
+e.g. python smatch.py -m '(BOY ?X)' '(BOY ?X) (UNIQUE ?X)'
+
+If you also want to have the precision and recall, then run:
+
+python smatch.py -m 'parsed meaning network' 'expected meaning network' --pr
+
+e.g. python smatch.py -m '(BOY ?X)' '(BOY ?X) (UNIQUE ?X)' --pr
+
+To run the specific smatch score to obtian the f-score:
+
+python ssmatch.py -m 'parsed meaning network' 'expected meaning network; variables to focus on'
+
+e.g. python ssmatch.py -m '(BOY ?X)' '(BOY ?X) (UNIQUE ?X); ?X'
+
+If you also want to have the precision and recall, then run:
+
+python ssmatch.py -m 'parsed meaning network' 'expected meaning network; variables to focus on' --pr
+
+e.g. python ssmatch.py -m '(BOY ?X)' '(BOY ?X) (UNIQUE ?X); ?X' --pr

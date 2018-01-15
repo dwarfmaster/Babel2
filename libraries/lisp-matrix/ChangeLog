@@ -1,0 +1,467 @@
+2008-06-13  Evan Monroig  <evan.monroig@gmail.com>
+
+	* tests.lisp (transposed-p): fixed matrix size - cannot be 1
+	because it doesn't transpose
+	(unit-strides-p): use UNIT-STRIDES-P
+	(fun-transpose, fun-window, fun-strides): also test :FOREIGN-ARRAY
+	implementation
+	(vectors, construct-vectors, row-of-strided-matrix)
+	(col-of-strided-matrix, v=, row-of-window, real-stride): tests for
+	vectors and vector views
+	(make-predicate): use UNIT-STRIDES-P
+	(m*-vectors): matrix multiplication for vectors - should work as
+	is vecause they are subtypes of matrices but there are some corner
+	cases for slices
+
+	* lapack-methods.lisp: update all to use UNIT-STRIDES-P instead of
+	UNIT-STRIDE-P
+	(scal): new method for LA-VECTOR-DOUBLE just to show how to do it
+	for vectors - need to think about harmonizing it with matrix cases
+	(call-with-work): update to use the new MAKE-VECTOR interface
+
+	* matrix-foreign-array.lisp: added vector subtypes
+
+	* matrix-implementations.lisp (make-matrix-class-hierarchy):
+	changed superclass order for MATVIEWs
+
+	* vector.lisp (real-stride): return real stride for use with
+	lapack wrappers
+	(zero-offset-p, unit-strides-p): added for SLICE-VECVIEW
+	(mref): added for SLICE-VECVIEW
+	(make-vector): created - equivalent to MAKE-MATRIX
+	(row): added specific methods to directly slice on the original
+	matrix for cases of window and stride views
+	(col): removed reference to FLATTEN-MATRIX-INDICES; needs more
+	work
+
+	* matrix.lisp (unit-strides-p): renamed because for a vector the
+	meaning is different
+	(flatten-matrix-indices-1): added for case where we want to know
+	an offset but only with respect to the immediately parent matrix
+	(transpose): return original matrix if no need for transpose
+	(strides): automatically create vector slices instead where
+	appropriate
+	(copy!): check for equality before doing anything
+
+	* vector.lisp: renamed from experimental/vector-as-subtype.lisp
+
+	* old/fnv-vector.lisp: moved here from fnv-vector.lisp
+
+	* lisp-matrix.asd (lisp-matrix): add file vector.lisp, remove
+	fnv-vector.lisp
+
+	* matrix-implementations.lisp (vector-class): similar to
+	MATRIX-CLASS
+	(make-matrix-class-hierarchy): renamed from MAKE-CLASS-HIERARCHY
+	(make-vector-class-hierarchy): newly defined
+
+	* matrix-lisp-array.lisp (la-vector): base vector class
+	(vref, setf vref): defined
+	(make-matrix*): make a vector if NROWS or NCOLS are 1
+	(la-vector-class): similar to LA-MATRIX-CLASS
+	(construct-la-matrix): also define vector subclasses
+
+	* matrix.lisp (print-object): renamed variable
+	(rand): accept additional argument VALUE which is the same as for
+	the function RANDOM
+	(transpose): transposing two times returns the original
+	(window): define a window as a stride
+	(strides): generate a window if the strides are 1
+	(strides): stride on the parent of the argument matrix
+	(matview): PARENT is of type MATRIX-LIKE
+
+	* tests.lisp (transposed-p): update
+	(fun-transpose, fun-window, fun-strides, fun-matrix-views): new
+	test suite for matviews
+
+2008-06-12  Evan Monroig  <evan.monroig@gmail.com>
+
+	* lapack-utils.lisp (%clean-lambda-list, def-lapack-method): add
+	generic function generation
+
+	* experimental/vector-as-separate-type.lisp: same as in previous
+	commit experimental/vector.lisp
+
+	* experimental/vector-as-subtype.lisp: from a previous commit --
+	updated to have the same class for row- and column- vectors
+
+2008-06-11  Evan Monroig  <evan.monroig@gmail.com>
+
+	* experimental/vector.lisp: try at separate vector type -> also
+	lots of code duplication
+	minor change
+
+	* experimental/vector.lisp: added more necessary things for the
+	case of vector type derived from matrix type -> ugly code
+	duplication
+
+	* matrix.lisp (mref, setf mref): minor change in documentation
+	(window, strides, transpose): minor change in argument name
+
+2008-06-08  Evan Monroig  <evan.monroig@gmail.com>
+
+	* experimental/vector.lisp: just some 5-minute exploratory
+	brainstorming at the vector interface
+
+	* tests.lisp (ones, zeros, eye): new tests
+	(axpy, dot, nrm2, asum, iamax, m+, m-): new tests
+
+	* matrix.lisp (eye): added
+
+	* lapack-methods.lisp (axpy, dot, dotu, dotc, nrm2, asum, iamax):
+	added
+	(scal): modified
+
+	* matrix-operations.lisp (m+, m-): added
+
+	* lapack-utils.lisp (def-lapack-method): modify NAME parameter to
+	allow a list with the name and then keywords.
+	(%get-functions, %get-name): helper functions to obtain the NAME
+	and the cl-blapack function names to use for each matrix
+	element-type
+	(with-copies): when RESULT is NIL, don't return it but instead
+	return the value of BODY
+
+2008-06-07  Evan Monroig  <evan.monroig@gmail.com>
+
+	* matrix-operations.lisp (m*): added
+
+	* lapack-utils.lisp (translate-to-foreign): keep to minimal methods
+	(with-pinned-arrays, with-pinned-copies, la-matrix->pointer):
+	clean up a little
+
+	* matrix-implementations.lisp (*type-table*, type-info)
+	(add-type, def-lisp-matrix-type): rewritten type functions and
+	type info table to also define a CFFI-TYPE
+	(make-class-hierarchy): also create a method ELEMENT-TYPE-SIZE
+
+	* matrix.lisp (offset): moved here from lapack-utils.lisp
+
+	* lapack-methods.lisp (gemm): striped down, made closer to the
+	fortran call
+
+	* experimental/multiplication.lisp: replaced by some experimental
+	code to call the fortran dgemm using CFFI types for which lisp
+	arrays are converted inline (no generic functions) -- this would
+	necessitate to duplicate the work (and the CFFI types) for the
+	case of foreign arrays.
+
+2008-06-06  Evan Monroig  <evan.monroig@gmail.com>
+
+	* lapack-utils.lisp (with-pinned-copies): copy all matrices to
+	foreign arrays for those lisps for which arrays cannot be pinned
+	(with-copies): copy using *DEFAULT-IMPLEMENTATION* as the target
+	matrix implementation
+
+	* matrix-lisp-array.lisp (make-matrix*, la-default-value): work
+	around CLISP array initialization to NIL
+
+	* matrix.lisp (copy*, copy-maybe*): versions where we specify the
+	implementation
+	(fill-matrix): newly added
+
+	* tests.lisp: all tests now work for :FOREIGN-ARRAY and
+	:LISP-ARRAY implementations
+
+	* lapack-methods.lisp (gemm, gelsy): updated
+
+	* lapack-utils.lisp (def-lapack-method): updated
+	(with-pinned-objects, with-pinned-copies): arrange matrix copies
+	to be pinned (for SBCL) or GC turned off (for CMUCL)
+	(def-lapack-method): add methods for lisp-array based matrices,
+	and for those replace WITH-COPIES by WITH-PINNED-COPIES
+	(translate-to-foreign): define several methods to directly convert
+	matrices to pointers
+	(la-matrix->pointer): function to convert a lisp-array based
+	matrix to a pointer for CMUCL and SBCL
+
+	* matrix-foreign-array.lisp: use DEFINE-IMPLEMENTATION and
+	DEF-LISP-MATRIX-TYPE
+
+	* matrix-lisp-array.lisp: use DEFINE-IMPLEMENTATION and
+	DEF-LISP-MATRIX-TYPE
+
+	* matrix-implementations.lisp (define-implementation)
+	(def-lisp-matrix-type): function and macro to do some bookkeeping
+	on implementations and element-types
+
+	* matrix-lisp-array.lisp (construct-la-matrix): use
+	MAKE-CLASS-HIERARCHY
+
+	* matrix-foreign-array.lisp (construct-fa-matrix): use
+	MAKE-CLASS-HIERARCHY
+
+	* matrix-implementations.lisp (matrix-class)
+	(make-class-hierarchy): remove code duplication by factoring out
+	common code in both implementations
+
+	* matrix.lisp (flatten-matrix-indices): fixed strided-matview
+	method
+	(transpose-class, window-class, stride-class): new methods to
+	determine which class to instanciate
+
+	* matrix-lisp-array.lisp: add classes for views
+
+	* matrix-foreign-array.lisp: add classes for views
+
+	* lapack-utils.lisp (def-lapack-method): update to specialize on
+	the base class of a matrix
+
+2008-06-05  Evan Monroig  <evan.monroig@gmail.com>
+
+	* lapack-methods.lisp: added as commented code a basic call to
+	DGEMM using matrices based on lisp arrays
+
+	* lapack-utils.lisp: added comments on how to proceed with CFFI
+	and fortran types
+
+	* lapack-methods.lisp: updated -- works only for foreign array
+	based implementation and not for MATVIEW matrices (for this I need
+	to define a common class type that groups normal matrices and
+	MATVIEW matrices of one implementation and one element-type)
+
+	* lapack-utils.lisp: updated
+
+	* tests.lisp: updated all tests except GEMM for MATVIEWs which
+	doesn't work
+
+	* old/fnv-matrix.lisp: moved the old implementation here
+
+	* matrix-foreign-array.lisp: implementation based on foreign
+	arrays
+
+	* matrix-lisp-array.lisp: implementation based on lisp arrays
+
+	* matrix.lisp: rewritten the matrix class interface
+
+2008-06-04  Evan Monroig  <evan.monroig@gmail.com>
+
+	* experimental/matrix.lisp: started to rewrite the matrix class
+	interface to add FFA arrays as well
+
+2008-05-20  Evan Monroig  <evan.monroig@gmail.com>
+
+	* experimental/element-access.lisp (with-fast-access): try at
+	using a higher-level macro that defines local macros to override
+	VREF and gain 10x speed.
+
+2008-05-19  Evan Monroig  <evan.monroig@gmail.com>
+
+	* experimental/element-access.lisp: add execution times
+
+	* benchmark/lisp-vs-c-aref.lisp: moved experimental benchmarks to
+	experimental/element-access.lisp
+
+	* experimental/element-access.lisp: clean up and add some
+	documentation - these are just experiments anyway
+
+2008-05-17  Evan Monroig  <evan.monroig@gmail.com>
+
+	* tests.lisp (make-matrix-double-4, make-matrix-double-3)
+	(make-matrix-double-2, make-matrix-double-1): don't test matrices
+	for which one of the sizes is zero
+	(make-matrix-double-zero-size): separate tests for zero size (does
+	not work on clisp)
+	(transpose-double, window-double, setf-mref, copy): for clisp,
+	don't test matrices for which one of the sizes is zero
+
+2008-05-11  Evan Monroig  <evan.monroig@gmail.com>
+
+	* lapack-utils.lisp (walk-and-replace): replace by common-lisp
+	function SUBLIS
+
+2008-05-07  Evan Monroig  <evan.monroig@gmail.com>
+
+	* benchmark/lisp-vs-c-aref.lisp: same as the one on the page of
+	Mark Hoemmen but with added tests for the MREF of lisp-matrix and
+	matlisp
+
+	* experimental/element-access.lisp: some tries to see if element
+	access can be improved while having matrices defined as CLOS
+	classes
+
+2008-05-04  Evan Monroig  <evan.monroig@gmail.com>
+
+	* lapack-utils.lisp (def-lapack-method): add wrapper around method
+	body to remove floating-point traps
+
+	* lisp-matrix.asd (lisp-matrix): add new files
+
+	* tests.lisp: moved tests from experimental/multiplication.lisp
+
+	* lapack-methods.lisp (gemm): moved from
+	experimental/multiplication.lisp
+
+	* lapack-utils.lisp (make-predicate): moved from
+	experimental/multiplication.lisp and renamed from
+	BUILD-TEST-LAMBDA
+	(with-copies, *supported-datatypes*, datatype->letter)
+	(walk-and-replace, def-lapack-method, orientation->letter)
+	(orientation-letter): moved from experimental/multiplication.lisp
+
+	* fnv-matrix.lisp (transposed-p, zero-offset-p, copy-into, copy)
+	(copy-into, copy-maybe, real-nrows, real-ncols): moved from
+	experimental/multiplication.lisp
+
+	* experimental/multiplication.lisp (with-copies): fixed bug in
+	restoration
+	(*supported-datatypes*): update to use same type names as in
+	fnv-matrix.lisp
+	(walk-and-replace, def-lapack-method): macro to create lapack
+	wrapper methods, and a helper function
+	(real-nrows, real-ncols): update documentation
+	(gemm): defined using DEF-LAPACK-METHOD
+
+	* fnv-matrix.lisp (window, strides): added argument checking
+	(print-object): simple method to see the contents of matrices when
+	they are returned in slime
+	(fnv-type-to-matrix-type): rewrite as a CASE statement, and add
+	:BASE keyword for the base class of the given fnv type
+
+2008-05-03  Evan Monroig  <evan.monroig@gmail.com>
+
+	* experimental/multiplication.lisp (m*): add test for
+	multiplication
+	(multiplication): test suite for this file
+	(gemm): add and rewrite content from experimental/matview.lisp to
+	allow implementation of lapack wrapper methods simultaneously for
+	all matrix types and while avoiding unnecessary matrix copies --
+	added sample GEMM method for the case of 'double matrices -- still
+	to be debugged for windowed and strided views, and to add a macro
+	to generate the GEMM methods for all matrix types
+
+	* tests.lisp (m=): test for M=
+	(setf-mref): add test for SETF MREF, using only standard matrices
+	for now
+
+	* fnv-matrix.lisp (setf mref): add method for all subtypes
+	(:compile-toplevel): add abstract class for all matrices and
+	matviews of each type
+	(data): add method for class MATVIEW and remove the one that I
+	added which was specific to transposed views
+	(m=): added strict equality test
+
+	* lisp-matrix.asd (lisp-matrix): add dependency on cl-blapack
+
+	* fnv-matrix.lisp (window-matview, transpose-matview)
+	(strided-matview): add abstrace matview classes
+
+2008-05-02  Evan Monroig  <evan.monroig@gmail.com>
+
+	* experimental/multiplication.lisp: add comments
+
+2008-04-29  Evan Monroig  <evan.monroig@gmail.com>
+
+	* experimental/multiplication.lisp: moved here from
+	multiplication.lisp
+
+2008-04-28  Evan Monroig  <evan.monroig@gmail.com>
+
+	* fnv-matrix.lisp (setf mref): add method for basic matrix types
+	(orientation): fixed for transposed matrix
+
+	* tests.lisp (make-matrix-double-4): add test for initialization
+	from list
+
+	* fnv-matrix.lisp (make-matrix): add initialization from a list of
+	lists
+
+2008-04-27  Evan Monroig  <evan.monroig@gmail.com>
+
+	* tests.lisp (test-matrix-size): add test for spurious argument to
+	MATRIX-DIMENSION
+	(make-matrix-double-3, transpose-double, random-array): factor out
+	common code into RANDOM-ARRAY
+	(window-double): add test for windowed matrices
+
+	* fnv-matrix.lisp (matrix-type-to-fnv-type): add documentation
+
+	* fnv-vector.lisp (vector-dimension, vref)
+	(fnv-type-to-vector-type, slice, vector-type-to-fnv-type): put
+	docstring in DEFGENERIC form
+
+	* fnv-matrix.lisp (matrix-dimension, matrix-dimensions)
+	(flatten-matrix-indices, mref, orientation)
+	(fnv-type-to-matrix-type): move docstring to a DEFGENERIC form
+	(window, transpose, strides): move docstring to a DEFGENERIC form
+	(nelts, matrix-type-to-fnv-type, unit-stride-p, fnv-type): move
+	docstring to a DEFGENERIC form
+	(make-typed-matrix): fixed calls to MAKE-SYMBOL*
+	(orientation): add documentation
+
+	* lisp-matrix.asd (lisp-matrix, operation-done-p): automatically
+	run tests when calling (ASDF:OOS 'ASDF:TEST-OP 'LISP-MATRIX)
+
+	* tests.lisp (tests): add root test suite
+
+	* fnv-vector.lisp (make-typed-vector): replace NCAT by
+	MAKE-SYMBOL*
+
+	* fnv-matrix.lisp (make-typed-matrix): replace NCAT by
+	MAKE-SYMBOL*
+
+	* package.lisp (:lisp-matrix): don't import NCAT
+
+	* utils.lisp (make-symbol*): add simple utility to replace NCAT
+
+2008-04-24  Evan Monroig  <evan.monroig@gmail.com>
+
+	* tests.lisp (test-matrix-size): helper function
+	(make-matrix-double-1, make-matrix-double-2)
+	(make-matrix-double-3, transpose-double): added basic tests
+
+	* lisp-matrix.asd (lisp-matrix): add dependency on fiveam
+
+	* package.lisp (:lisp-matrix): remove dependency on ASDF
+	(:lisp-matrix): add dependency on FIVEAM
+
+	* fnv-vector.lisp (make-vector): don't use argument
+	INITIAL-ELEMENT-P
+
+	* fnv-matrix.lisp (make-matrix): don't use argument
+	INITIAL-ELEMENT-P
+
+	* fnv-vector.lisp (initialize-instance): remove call to next
+	method
+
+	* fnv-matrix.lisp (initialize-instance): remove call to next
+	method
+
+	* macros.lisp (define-abstract-class): use EQL with TYPE-OF
+	instead of TYPEP which is too inclusive
+
+	* fnv-matrix.lisp (matrix-like, matview): modify readers, order of
+	slots and options as for vector types
+	(matrix-like): nrows and ncols should be accessors as we modify
+	them in other parts of the code
+	(make-typed-matrix): similar changes to the vector types
+	(strides, window): key arguments should be symbols not keywords
+	(make-typed-matrix -> initialize-instance :after): remove the
+	call to the next method
+
+	* fnv-vector.lisp (vector-like, vecview): replace these classes
+	and others so that slots and options are in correct order	
+	(double, float, complex-double, complex-float): when calling
+	MAKE-TYPED-VECTOR, the type should not be quoted
+	(make-typed-vector): re-establish the quoting of the fnv-type
+	argument when it is necessary
+	(vector-like, vecview): fixed reader functions which should be
+	symbols not keywords
+	(slice): parent is X
+
+	* macros.lisp (define-abstract-class): modify INITIALIZE-INSTANCE
+	method to quote the class name
+
+	* package.lisp (:lisp-matrix): import function NCAT which was an
+	internal symbol from the package FNV -- actually I would like to
+	remove dependence on this function since it pollutes the
+	LISP-MATRIX package with unused symbols
+
+	* fnv-vector.lisp (make-vector): see MAKE-MATRIX below
+	
+	* fnv-matrix.lisp (make-matrix): replaced by a generic function as
+	there is no simple way to define local setf methods -- labels
+	won't work, macrolet doesn't capture local variable when the
+	expansion is generated, symbol-macrolet doesn't work eigher
+	although I'm not sure to understand why
+

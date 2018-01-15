@@ -1,0 +1,15 @@
+unsuccessful relative clause : 0.371428571428 +/- 0.104489795918,sentences : 2
+unsuccessful downward quantifier : 0.142857142857 +/- 0.0,sentences : 1
+unsuccessful enclisis : 0.494444444444 +/- 0.629497354497,sentences : 6
+unsuccessful operator adverb : 0.2 +/- 0.0,sentences : 1
+unsuccessful wh question : 0.333333333333 +/- 0.0,sentences : 1
+unsuccessful fronted focus : 0.416666666666 +/- 0.0138888888889,sentences : 2
+successful relative clause : 0.433333333333 +/- 0.680725623583,sentences : 5
+successful negation : 0.814285714285 +/- 0.789795918364,sentences : 6
+successful undefined-subject : 1.0 +/- 0.0,sentences : 3
+successful downward quantifier : 0.738095238095 +/- 0.629251700681,sentences : 6
+successful enclisis : 0.873051948052 +/- 1.43427875696,sentences : 22
+successful operator adverb : 0.4 +/- 0.0,sentences : 2
+successful wh question : 0.9 +/- 0.12,sentences : 4
+successful fronted focus : 0.844444444445 +/- 0.325925925926,sentences : 6
+fscore: 0.721997157072 +/- 0.721997157072,sentences : 67,not enclisis : 39

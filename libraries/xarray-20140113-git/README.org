@@ -1,0 +1,424 @@
+
+Time-stamp: <2013-12-26 14:12:48 tony>
+
+* Using this file
+
+  This README file is intended to be read by humans as well as
+  processed by Emacs org-mode for publishing, for literate-programming
+  of examples, for bug-tracking and task/issue management, etc.
+
+** TODO [#A] Write up basic setup for using this file from org-mode
+   - State "TODO"       from ""           [2010-06-07 Mon 16:18]
+
+   leveraging ORG-MODE tools for mixing in TODO's within docs -- need
+   to include incantation for this to do the right thing for the
+   agenda view!
+
+   Right now there are issues with common-lisp support from within
+   babel within org-mode. The configuration is not clear right out of
+   the box and requires a bit of work to get working.
+
+#+begin_src lisp
+  ;; emacs-lisp snippet for linking in using this and the in-lined
+  ;; commented TODOs of course, still must be written
+#+end_src
+
+
+** TODO [#B] Quick example of using this.
+
+** Credits
+
+   Original Idea and majority (all?) work:  Tamas K. Papp <tkpapp@gmail.com>
+   Mucking, cleaning, simplifying, maintainance: AJ Rossini <blindglobe@gmail.com>
+
+** Quick Start
+
+*** ASDF only, OBSOLETE!
+
+#+begin_src lisp
+  (asdf:oos 'asdf:load-op :xarray)
+  (asdf:oos 'asdf:compile-op :xarray :force T)
+#+end_src
+
+*** QUICKLISP
+
+#+begin_src lisp
+  (ql:quickload :xarray)
+#+end_src
+
+   If you are a neanderthal, and want to go back to the roots, you can
+   simply pull from github or similar:
+
+#+srcname: 
+#+begin_src sh
+  git clone http://github.com/blindglobe/xarray.git
+#+end_src
+
+* Overview
+
+  This package implements a generalized interface for array-like
+  objects.  An array-like object is any structure whose data (but not
+  necessarily metadata) could be simply mappable to either a lisp
+  array or a list-of-list structure.
+
+  This could be interpreted in that this forms either a rectangular or
+  ragged-array (differential lengths of EITHER rows OR columns).  
+
+  The idea is that we should be able to index an object's data, but
+  might not be able to access specialized metadata.  We provide a
+  means of having views into convienently indexable rectangular
+  substructures, which are view-by-reference, not copies, (TODO: need
+  to create indexing tools for pulling various combinations out).  In
+  addition, there is a tool for taking a copy of the array into a lisp
+  array (TODO: generalize to other array structures).
+
+  General design is that xref works out of the box on lisp arrays and
+  list-of-list structures.  Additional matrix packages could depend on
+  xarray and extend the generics (i.e. lisp-matrix) or have
+  patching-packages (think ASDF-SYSTEM-CONNECTIONS) register.
+
+  In a sense, we just rely on the default situation of CLOS -- it'll
+  tell users which structures need xref-able methods, and the users
+  will just have to tell us.  But that means that XARRAY is their
+  dependency, not that an XARRAY can look forward and load them (which
+  might be worthwhile when using XCREATE or the conversion routines.
+
+* API
+
+** interface.lisp
+
+(defgeneric xelttype (object)
+(defgeneric xdims (object)
+(defgeneric xdim (object dim)
+(defgeneric xrank (object)
+(defgeneric xsize (object)
+(defgeneric xref (object &rest subscripts)
+(defgeneric (setf xref) (value object &rest subscripts)
+(defgeneric xsetf (destination source &key map-function)
+(defgeneric xsimilar (rank object)
+(defgeneric xcreate (class dimensions &optional options)
+(defgeneric as* (class object copy-p options)
+
+** operations.lisp
+
+operations.lisp:29:  `(defgeneric ,name (a b &key &allow-other-keys)
+operations.lisp:69:(defgeneric x= (a b &optional eps)
+operations.lisp:117:  `(defgeneric ,name (a)
+operations.lisp:221:(defgeneric xdot (a b)
+
+** view.lisp
+
+(defgeneric permutation (object &rest permutation)
+(defgeneric transpose (object)
+(defgeneric xslice (object &rest index-specifications)
+(defgeneric (setf xslice) (value object &rest index-specifications)
+; (defgeneric row-major-projection (object &rest dimensions)
+(defgeneric column-major-projection (object &rest dimensions)
+(defgeneric flat (object)
+(defgeneric ancestor-subscripts (object index)
+
+
+** Core
+*** XREF
+
+   Access individual elements in an array.
+
+#+begin_src lisp
+  (xref object
+        #| 1 2 3 or similar indexing sequence |# )
+  (setf (xref object
+              #| 1 2 3 or similar indexing sequence |# )
+        value)
+#+end_src
+
+  to retrieve or set an element.  This would be easy to do with aref
+  if aref was a generic function, but for various (sensible) reasons,
+  it is not.  I (here, this is Tamas) describe a simple interface with
+  a few generic functions.  Any objects that has these methods is
+  called "xrefable".  For a given datastructure, we must implement the
+  following tools.
+
+  queries (sub)structure and returns views which can be accessed and
+  set.  The reference <ref> manages the indicies in the resulting
+  view.
+
+#+begin_src lisp
+  (xref object <ref>)
+#+end_src
+
+*** XDIMS
+   queries dimensions of structure.  There is an open question[fn:1]
+   whether an XDIM function should exist.
+
+#+begin_src common-lisp
+  (xdims object)  ;; returns list of all indicies
+  (xdim object <dimindex eg 0, ..., n-1>)
+  (nth 0 (xdims object))
+  (nth 1 (xdims object))
+#+end_src
+
+*** XELTTYPE
+
+#+begin_src lisp
+   (xelttype object &optional <ref>)
+#+end_src
+
+   queries element and substructure types.  If <ref> is given, it
+   returns the substructure, if <ref> is nil, it returns the whole
+   structure.
+
+*** XCOPY
+
+#+begin_src lisp
+   (xcopy object <ref>)
+#+end_src
+
+   queries (sub)structure and returns copies.  If one gets confused
+   between a view and copy, dire consequences could entail, so we use
+   separate generic functions for reference and copy, rather than a
+   single "xaccess", which could result in:
+
+#+begin_src common-lisp
+   (defmacro xref  (&rest args) (xaccess :type 'reference @args))
+   (defmacro xcopy (&rest args) (xaccess :type 'copy      @args))
+#+end_src
+
+*** XNEW
+
+   creates a new structure.  One could consider using a undefined
+   object in order to implement this with setf, i.e. 
+
+#+begin_src common-lisp
+   (setf (xref undef-object <refs>) object-with-right-structure)
+#+end_src
+   and having it return undef-object with the right value.  But there
+   are a few other possibilities.
+
+** Extended
+*** XRANK
+*** XSIMILAR
+*** XSIZE
+    Return the number of elements in the array (product of dimensions,
+    so a zero-dimensional array has size 1).  Should be the analog of
+    ARRAY-TOTAL-SIZE
+
+*** XCREATE
+    Creates a new xref-able object with a particular backing store
+    (ARRAY, or LISTOFLIST, or MATRIX-LIKE, or DATAFRAME-LIKE).
+
+*** AS*
+    libraries specialize, so write for data store.
+
+    Users should leverage AS or COPY-AS
+
+*** AS
+    user function for as*
+
+*** COPY-AS
+    user function for as* which makes a deep copy
+
+*** TAKE
+    
+** Utility
+   these are currently related to arrays.
+*** CVECTOR
+    returns a simple array of the specified element type, which is
+    vector-ish, filled by contents.
+
+*** CARRAY
+    returns a simple array of the specified element type, which is
+    array-ish (dimensioned), filled by contents.
+
+*** CVECTOR*
+    Same as cvector, but element-type is derived using NUMERIC-TYPE-CLASSIFIER. 
+
+*** CARRAY*
+    Same as carray, but element-type is derived using NUMERIC-TYPE-CLASSIFIER. 
+
+* Approach in general
+
+  Both copies and views on an array should be XREF-able.  
+
+  Array and vector construction for LISP ARRAYS (the default and base storage class) are shown as follows: 
+
+#+BEGIN_SRC lisp
+  (defparameter *b* (xarray:cvector* (list 0.0 1.0 2.0 3.0 4.0 5.0 6.0 7.0)))
+  ,*b* ;; this is an array of 1 item, a list of 8 floats
+  
+  (defparameter *c* (xarray:cvector* 0.0 1.0 2.0 3.0 4.0 5.0 6.0 7.0))
+  ,*c* ;; this is an array of 8 items, each a float
+  
+  (defparameter *a* (xarray:carray* (list 2 4)
+                                    0.0 1.0 2.0 3.0 4.0 5.0 6.0 7.0))
+  ,*a*
+  
+  
+  
+  (defparameter *d* (xarray:cvector 'double-float 0.0 1.0 2.0 3.0 4.0 5.0 6.0 7.0))
+  ,*d* ;; this is an array of 1 item, a list of 8 floats
+  
+  (defparameter *e* (xarray:cvector 'fixnum 0 1 2 3 4 5 6 7))
+  ,*e* ;; this is an array of 8 items, each a float
+  
+  (defparameter *f* (xarray:carray 'fixnum (list 2 4)
+                                    0 1 2 3 4 5 6 7))
+  ,*f*
+  
+  (defparameter *g* (xarray:carray 'double-float (list 2 4)
+                                    0.0 1.0 2.0 3.0 4.0 5.0 6.0 7.0))
+  *g*
+#+END_SRC
+
+  This can be sliced and dices in a number of ways, 
+
+#+begin_src common-lisp
+  (xarray:xslice *a* :all 2)  ; third column
+  (xarray:xslice *a* 0 :all) ; first row
+#+end_src
+
+  selects the 3th column of an array.[fn:2] , and then the first row.
+  This view is also xrefable, so you can use
+
+#+begin_src common-lisp
+  (setf (xarray:xref (xarray:xslice *a* :all 2) 1) 9.0)
+#+end_src
+
+  to set element 2 in the 3rd column, which has value 6, to the
+  value 9.  Changes will be made in the original array
+
+#+begin_src common-lisp
+  *a*
+#+end_src
+
+  since this is a view.  But for functions that just expect an array,
+  they can use the interface (xref, xdims, etc) and not care where it
+  is coming from.
+
+  I have also implemented permutations (generalized transpose), and
+  row-major projections.  If you want to collect the elements of a
+  view in an array ("deep copy"), use
+
+#+begin_src common-lisp
+  (copy-as *a*)
+  (copy-as (xarray:xslice *a* :all 2))
+#+end_src
+
+  which delivers a CL array of the original and then sliced xrefable object.  
+
+  There are convenience functions that for easy array/vector creation,
+  inspired by R:
+
+#+begin_src common-lisp
+  (carray* '(2 3) 1 2 3 4d0 5 6)
+  ;; => #2A((1.0d0 2.0d0 3.0d0) (4.0d0 5.0d0 6.0d0))
+#+end_src
+
+  guess the type so that all of the elements would fit in.  See also
+  cvector and carray (manually specified type) and cvector*.
+
+* Roadmap, tasks, bugs.
+** TODO [#B] unit testing [0/5]
+   - State "TODO"       from ""           [2010-06-07 Mon 15:33]
+*** TODO [#B] XDIMS unittests
+    - State "TODO"       from ""           [2010-06-07 Mon 15:29]
+*** TODO [#B] XTYPE unittests
+    - State "TODO"       from ""           [2010-06-07 Mon 15:29]
+*** TODO [#B] XREF unittests
+    - State "TODO"       from ""           [2010-06-07 Mon 15:29]
+*** TODO [#B] XCOPY unittests
+    - State "TODO"       from ""           [2010-06-07 Mon 15:29]
+*** TODO [#B] XNEW unittests
+    - State "TODO"       from ""           [2010-06-07 Mon 15:29]
+** TODO [#A] integrate linear algebra routines
+   - State "TODO"       from ""           [2010-06-07 Mon 15:33]
+   probably from GSLL?  It should
+   be easy to rig an xrefable interface to GSLL arrays.
+** TODO [#B] Specialized arrays [0/2]
+   - State "TODO"       from ""           [2010-06-07 Mon 15:33]
+   upper- and lower-triangular matrices, etc.  xrefable elements can
+   be read-only, xref-writeable-p is an interface to test if an
+   element is writeable, it was included specifically for this.
+   In addition, integrate sparse matrices from cl-sparsematrix.
+*** TODO [#B] Triangular matrices
+    - State "TODO"       from ""           [2010-06-07 Mon 15:33]
+*** TODO [#B] Sparse matrices
+    - State "TODO"       from ""           [2010-06-07 Mon 15:33]
+** TODO [#B] specialized subclasses for certain cases and operations
+   - State "TODO"       from ""           [2010-06-07 Mon 15:34]
+   eg views on matrices, a transpose-view would be much simpler (and
+   faster, maybe?) than the generalized permute.  Some operations (such as
+   outer products, multiplication, addition) could be highly optimized
+   when we know more about the specific structure (e.g. triangular,
+   only ones/zeros, etc...).
+** TODO [#B] decent printing for xrefable objects,
+   - State "TODO"       from ""           [2010-06-07 Mon 15:34]
+   currently converted to array.
+** TODO [#B] direct access from other systems
+   - State "TODO"       from ""           [2010-06-07 Mon 15:34]
+   certain views can be directly accommodated by LAPACK/GSLL (eg a
+   matrix with a stride).  Minor possibility for speedup/memory
+   savings.  This is related to optimization based on substructure. 
+** TODO [#B] fix SLICE api between LISP-MATRIX and XARRAY
+   - State "TODO"       from ""           [2010-06-07 Mon 15:38]
+** TODO [#B] implement equalp for XREF-able objects
+   - State "TODO"       from ""           [2010-06-07 Mon 15:40]
+* Development in progress
+  To use this from within org-mode/org-babel, C-c ' will put into
+  slime / lisp editing mode
+#+begin_src common-lisp
+  (in-package :cl-user)
+  (asdf:oos 'asdf:compile-op 'xarray :force t)
+  (asdf:oos 'asdf:load-op 'xarray)
+  (asdf:oos 'asdf:load-op 'xarray-test)
+#+end_src
+  Tamas was thinking about this being a general interface, but then in
+  my (Tony's) opinion, included some specialized issues that needed to
+  be considered here but handled elsewhere.  My limited understanding
+  had to do with practical considerations; I don't need to be
+  practical, and he does.  THIS is precisely where I am deviating in
+  my further development of this.
+
+  What I (Tony) am currently thinking about is to pay a penalty
+  initially (and maybe for a while!) on speed of access and write a
+  general interface using a range of possible back-ends.  So that we
+  can get the interface clean: xref pulls out a value and puts it int
+  an array of the same structure, xref* pulls out a value and sticks
+  it into a lisp array or scalar and returns it.  Speed can be handled
+  later by doing a compile-time/run-time tradeoff, we will pay the
+  compile-time penalty, in exchange for run-time advantages.  This
+  fits into the theme of rapid prototyping (slow exec) followed by
+  rapid execution (post-proto...).
+
+  We'll optimize for version 2.  Ha-ha.
+
+  Current thinking on the above, is to stick them into separate
+  packages.  In particular, I've factored out the listoflist
+  infrastructure into its own package.
+
+  Checking current test state; but this is currently broken!
+#+begin_src common-lisp
+  (in-package :xarray-ut)
+  (run-tests :suite 'xarray-ut)
+  ;; => #<Results for XARRAY-UT 13 Tests, 0 Errors, 0 Failures>
+  (describe (run-tests :suite 'xarray-ut))
+#+end_src
+
+** Development work and examples
+   Here are any current trials that are undergoing development.
+#+begin_src
+(in-package :xarray-user)
+;; and dev code goes here.
+#+end_src
+
+* Discussion
+
+* Footnotes
+
+[fn:1] this is aesthetic.  Why write a simple list extract tool when
+it could suffice to use existing list extraction functions?  This also
+leads to better programmer knowledge, as well as a single point of
+optimization for the overall system (the internal system list
+manipulation functions)
+
+[fn:2] The slice interface is similar to Tamas' affi package, but now
+arbitrary index vectors are allowed, much like R.

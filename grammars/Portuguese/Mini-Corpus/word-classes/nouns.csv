@@ -1,0 +1,40 @@
+professoras;common-noun;3;plural;feminine;physical-object animate;teacher multiple feminine
+canetas;common-noun;3;plural;feminine;physical-object tangible inanimate;pen multiple
+papel;common-noun;3;singular;masculine;physical-object tangible inanimate;paper single
+policia;common-noun;3;singular;masculine;physical-object animate;police-person single
+tio;common-noun;3;singular;masculine;physical-object animate;uncle single
+criancas;common-noun;3;plural;feminine;physical-object animate;children multiple feminine
+presentes;common-noun;3;plural;masculine;physical-object tangible inanimate;gift multiple
+verdade;common-noun;3;singular;feminine;abstract-concept intangible;truth single
+professor;common-noun;3;singular;feminine;physical-object animate;teacher single masculine
+pasta;common-noun;3;singular;feminine;physical-object tangible inanimate;dossier single
+rua;common-noun;3;singular;feminine;physical-location;street single
+bolo;common-noun;3;singular;masculine;physical-object tangible inanimate;cake single
+mae;common-noun;3;singular;feminine;physical-location animate;mother single
+historia;common-noun;3;singular;feminine;abstract-concept intangible;history single
+dose;common-noun;3;singular;feminine;abstract-concept intangible;amount single
+professora;common-noun;3;singular;feminine;physical-object animate;teacher single feminine
+compras;common-noun;3;plural;feminine;physical-object tangible inanimate;bought-object multiple
+alunos;common-noun;3;plural;masculine;physical-object animate;student multiple masculine
+cinema;common-noun;3;singular;masculine;physical-location;cinema single
+pontape;common-noun;3;singular;masculine;physical-movement;kick single
+premio;common-noun;3;singular;masculine;physical-object tangible inanimate;prize single
+flores;common-noun;3;plural;feminine;physical-object tangible inanimate;flower multiple
+rapazes;common-noun;3;plural;masculine;physical-object animate;boys multiple
+prenda;common-noun;3;singular;feminine;physical-object tangible inanimate;gift single
+livro;common-noun;3;singular;masculine;physical-object tangible inanimate;book single
+livros;common-noun;3;plural;masculine;physical-object tangible inanimate;book multiple
+pessoa;common-noun;3;singular;feminine;physical-object animate;person single
+pessoas;common-noun;3;plural;feminine;physical-object animate;person multiple
+pedro;proper-noun;3;singular;masculine;physical-object animate;person pedro
+ana;proper-noun;3;singular;feminine;physical-object animate;person ana
+joao;proper-noun;3;singular;masculine;physical-object animate;person joao
+paulo;proper-noun;3;singular;masculine;physical-object animate;person paulo
+miguel;proper-noun;3;singular;masculine;physical-object animate;person miguel
+joana;proper-noun;3;singular;feminine;physical-object animate;person joana
+teresa;proper-noun;3;singular;feminine;physical-object animate;person teresa
+maria;proper-noun;3;singular;feminine;physical-object animate;person maria
+nada;indefinite-pronoun;3;singular;masculine;abstract-concept intangible physical-object;nothing
+alguem;indefinite-pronoun;3;singular;masculine;abstract-concept intangible animate physical-object;somebody
+ninguem;indefinite-pronoun;3;singular;masculine;abstract-concept intangible animate physical-object;nobody
+pouco;;3;singular;masculine;abstract-concept intangible animate physical-object;little

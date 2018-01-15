@@ -1,0 +1,17 @@
+(in-package :fcg)
+
+(deftest test-equivalent-meanings ()
+  (test-assert (equivalent-meaning? '(girl x) '(girl x) :unify-with-instantiated-variables))
+  (test-assert (not (equivalent-meaning? '(girl x) '(girl y) :unify-with-instantiated-variables)))
+  (test-assert (equivalent-meaning? '(girl x) '(girl ?y) :unify-with-instantiated-variables))
+  (test-assert (equivalent-meaning? '((unique ?x) (girl ?x)) '((unique ?y) (girl ?y)) :unify-with-instantiated-variables))
+  (test-assert (equivalent-meaning? '((girl ?x) (unique ?x)) '((unique ?y) (girl ?y)) :unify-with-instantiated-variables))
+  (test-assert (equivalent-meaning? '((unique ?x) (girl ?x)) '((unique ?a) (girl ?b)) :unify-with-instantiated-variables))
+  (test-assert (equivalent-meaning? '((unique ?a) (girl ?b)) '((unique ?a) (girl ?b)) :unify-with-instantiated-variables))
+  (test-assert (equivalent-meaning? '((unique ?a) (girl ?a)) '((girl ?a) (unique ?b)) :unify-with-instantiated-variables))
+  (test-assert (equivalent-meaning? '((unique ?a) (girl ?a)) '((girl ?a) (unique ?b)) :unify-with-instantiated-variables))
+  (test-assert (not (equivalent-meaning? '((unique ?a) (girl ?b)) '((girl ?a) (unique ?a)) :unify-with-instantiated-variables)))
+  (test-assert (not (equivalent-meaning? '((unique ?b) (girl ?b)) '((girl ?a) (unique ?a) (dummy ?a)) :unify-with-instantiated-variables)))
+  (test-assert (equivalent-meaning? '((unique ?b) (girl ?b)) '((girl ?a) (unique ?a)) :unify-with-instantiated-variables)))
+  
+;; (test-equivalent-meanings)

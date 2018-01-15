@@ -1,0 +1,9 @@
+relative clause : 0.623203535326 +/- 0.0792715307811,sentences : 7
+negation : 0.767520279193 +/- 0.253632719934,sentences : 6
+undefined-subject : 0.892773892774 +/- 0.0949150259743,sentences : 3
+downward quantifier : 0.784754818193 +/- 0.200941919874,sentences : 7
+enclisis : 0.748118535761 +/- 0.204574588687,sentences : 28
+operator adverb : 0.632738095238 +/- 0.226517620565,sentences : 3
+wh question : 0.880882352941 +/- 0.182281769792,sentences : 5
+fronted focus : 0.703623232792 +/- 0.220737662054,sentences : 8
+fscore: 0.746538548391 +/- 0.209787309633,sentences : 67,not enclisis : 39

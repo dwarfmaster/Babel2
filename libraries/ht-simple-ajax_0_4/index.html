@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"><head><title>HT-SIMPLE-AJAX - Another Ajax library for Hunchentoot</title><script type="text/javascript">//<![CDATA[ 
+// handles the response from lisp and then polls the next requests after 200 ms
+function requestsCallBack (result) {
+  for (i=0;i<result.firstChild.firstChild.childNodes.length;i++) 
+  {
+    var request = document.importNode(result.firstChild.firstChild.childNodes[i],true);
+    switch (request.nodeName) 
+    {
+    case 'reset': case 'RESET':
+      var content = document.getElementById('content');
+      while (content.firstChild) {
+        content.removeChild(content.firstChild);
+      }
+      break;
+    case 'add-element': case 'ADD-ELEMENT':
+      while (request.firstChild) {
+        document.getElementById('content').appendChild(request.firstChild);
+      }
+      window.scrollTo(0,100000000);
+      break;
+    case 'replace-element-content': case 'REPLACE-ELEMENT-CONTENT':
+      var id = request.getElementsByTagName('id')[0].firstChild.nodeValue;
+      var content = request.getElementsByTagName('content')[0];
+      var node = document.getElementById(id);
+      while (node.firstChild) { node.removeChild(node.firstChild); }
+      while (content.firstChild) { node.appendChild (content.firstChild) };
+      break;
+    case 'append-to-element': case 'APPEND-TO-ELEMENT':
+      var id = request.getElementsByTagName('id')[0].firstChild.nodeValue;
+      var content = request.getElementsByTagName('content')[0];
+      var node = document.getElementById(id);
+      while (content.firstChild) { node.appendChild (content.firstChild) };
+      break;
+    default:
+      alert('unhandled request: ' + request.nodeName);
+      break;
+    }
+  }
+
+  window.setTimeout(getRequests,200);
+}
+    
+// asynchronously polls the content of *requests* on the lisp side
+function getRequests () {
+  ajax_get_requests(requestsCallBack);
+}
+
+function expand(id) {
+    ajax_expand_or_collapse_node(id,true);
+}
+
+function collapse(id) {
+    ajax_expand_or_collapse_node(id,false);
+}
+
+function expandAll(id) {
+    ajax_expand_or_collapse_all(id,true);
+}
+
+function collapseAll(id) {
+    ajax_expand_or_collapse_all(id,false);
+}
+
+function expandStatic(id) {
+    var node = document.getElementById(id);
+    node.firstChild.style.display = 'none';
+    node.lastChild.style.display = 'inline';
+}
+
+function collapseStatic(id) {
+    var node = document.getElementById(id);
+    node.firstChild.style.display = 'inline';
+    node.lastChild.style.display = 'none';
+}
+
+function expandAllStatic(id) {
+    var nodes = document.getElementsByName(id);
+    for (i=0;i<nodes.length;i++) {
+	nodes[i].parentNode.firstChild.style.display = 'none';
+	nodes[i].parentNode.lastChild.style.display = 'inline';
+    }
+}
+
+function collapseAllStatic(id) {
+    var nodes = document.getElementsByName(id);
+    for (i=0;i<nodes.length;i++) { 
+	nodes[i].parentNode.firstChild.style.display = 'inline';
+	nodes[i].parentNode.lastChild.style.display = 'none';
+    }
+}
+
+function highlightSymbol(symbolName, elementId, backgroundColor) {
+  var nodes = document.getElementsByName(symbolName);
+  var highlight = (document.getElementById(elementId).style.backgroundColor == '');
+  for (i=0;i<nodes.length;i++) {
+    if (highlight) {
+      nodes[i].parentNode.style.backgroundColor = backgroundColor;
+    } else {
+      nodes[i].parentNode.style.backgroundColor = '';
+    }
+  }
+}
+ //]]></script><style type="text/css">
+.gtfl, .gtfl td { font-size: 9pt; font-family: Helvetica Neue, Helvetica, Arial; }
+.gtfl a { color: #000066; text-decoration:none; }
+.gtfl a:hover {text-decoration: underline}
+.gtfl a.button { font-size: 8pt;}
+.gtfl hr { border:0px;color:#777;background-color:#777;height:1px;width:100%;}
+
+table.tree { border-collapse:collapse }
+table.tree > tbody > tr > td { padding:0px;vertical-align:middle; }
+table.tree div.child { position:relative; }
+table.tree div.vl-top { height:50%;position:absolute;bottom:0px; }
+table.tree div.vl-middle { height:100%;position:absolute;top:0px; }
+table.tree div.vl-bottom { height:50%;position:absolute;top:0px; }
+table.tree div.vl-left { left:0px; }
+table.tree div.vl-right { right:0px; }
+
+div.pprint { margin-top:5px;}
+div.pprint * { font-family:Courier;font-size:9pt;line-height:10px;display:inline-block; }
+div.pprint span.table { display:inline-table;border-collapse:collapse;}
+div.pprint span.table > span { display:table-cell;vertical-align:top; }
+
+div.asdf { margin-top:5px;margin-bottom:5px; }
+div.asdf-duplicate { padding:3px;font-style:italic;}
+div.asdf div.title { background-color:#000; padding:5px; padding-top:3px; padding-bottom:2px; }
+div.asdf div.title > a { color:#fff;font-weight:bold; }
+table.asdf-system { border-collapse:collapse;border:1px solid black; width:100%;}
+table.asdf-system > tbody > tr > td { vertical-align:top; padding:4px;padding-bottom:2px; padding-top:2px; }
+
+h3 {margin-top:40px;}
+div.abstract > * { margin-left:40px;}
+p.description-header { margin-top:40px; margin-bottom:20px; }
+.description { margin-left:40px;}
+pre { background-color:#e0e0e0;padding:3px;display:table;margin-bottom:15px; }
+p + pre { margin-top:-10px;}
+div.example { border-left:4px solid red;padding-left:20px;margin-top:5px;margin-bottom:20px;}
+a { text-decoration:none; }
+a:hover, h3 {text-decoration: underline}
+tt {white-space:nowrap;display:inline-block;}
+</style></head><body><h1>HT-SIMPLE-AJAX - Another Ajax library for Hunchentoot</h1><div class="abstract"><h3>Abstract</h3><p>HT-SIMPLE-AJAX is an <a href="http://en.wikipedia.org/wiki/Ajax_(programming)">Ajax</a> library for the <a href="http://www.weitz.de/hunchentoot/">HUNCHENTOOT</a> web server. It allows to call ordinary Lisp functions from
+          within an html page using javascript and asynchronous
+          client/server communication.</p><p>It is a heavily simplified (150 lines of code) version of <a href="http://www.cliki.net/HT-AJAX">HT-AJAX</a> that is compatible with newer versions (>1.1) of
+        HUNCHENTOOT. It was initially developed for <a href="http://martin-loetzsch.de/gtfl">GTFL</a> and therefore provides only one type of Ajax processor (which
+         resembles the 'simple' processor of <a href="http://www.cliki.net/HT-AJAX">HT-AJAX</a>).</p><p>HT-SIMPLE-AJAX comes with a <a href="http://www.opensource.org/licenses/bsd-license.php">BSD-style license</a> so you can basically do with it whatever you want.</p><p><span style="color:red">Download shortcut:</span> <a href="http://martin-loetzsch.de/ht-simple-ajax/ht-simple-ajax.tar.gz">http://martin-loetzsch.de/ht-simple-ajax/ht-simple-ajax.tar.gz</a>.</p></div><hr /><p>Sponsored links</p><p><script type="text/javascript" src="http://martin-loetzsch.de/sponsoring/text-wide.js"></script><script type="text/javascript" src="http://martin-loetzsch.de/sponsoring/gads.js"></script></p><hr /><h3>Contents</h3><ol><li><a href="#download-and-installation">Download and installation</a></li><li><a href="#example">Example</a></li><li><a href="#dictionary">The HT-SIMPLE-AJAX dictionary</a><ol><li><a href="#ajax-processor"><tt>ajax-processor</tt></a></li><li><a href="#create-ajax-dispatcher"><tt>create-ajax-dispatcher</tt></a></li><li><a href="#defun-ajax"><tt>defun-ajax</tt></a></li><li><a href="#generate-prologue"><tt>generate-prologue</tt></a></li></ol></li><li><a href="#acknowledgements">Acknowledgements</a></li></ol><h3 id="download-and-installation">Download and installation</h3><p>HT-SIMPLE-AJAX together with an example and this documentation can be downloaded from <a href="http://martin-loetzsch.de/ht-simple-ajax/ht-simple-ajax.tar.gz">http://martin-loetzsch.de/ht-simple-ajax/ht-simple-ajax.tar.gz</a>. The current version is 0.4.</p><p>HT-SIMPLE-AJAX depends on the <a href="http://www.weitz.de/hunchentoot/">HUNCHENTOOT</a> (version >= 1.2.x) web server, which itself requires quite a
+        number of other libraries.</p><p>If you don't want to download all these libraries manually, you can use <a href="http://www.quicklisp.org/">Quicklisp</a> or <a href="http://www.cliki.net/ASDF-Install">ASDF-INSTALL</a>:</p><pre>(ql:quickload "ht-simple-ajax")</pre><pre>(asdf-install:install 'ht-simple-ajax)</pre><p>Once everything is installed, HT-SIMPLE-AJAX is compiled and loaded with:</p><pre>(asdf:operate 'asdf:load-op :ht-simple-ajax)</pre><h3 id="example">Example</h3><p>This is a brief walk-through of ht-simple-ajax. You can try
+        out the whole example in <a href="demo.lisp">demo.lisp</a> (also contained in the release).</p><p>First we create an ajax processor that will handle our
+        function calls:</p><pre>(defparameter *ajax-processor* 
+  (make-instance '<a href="#ajax-processor"><tt>ajax-processor</tt></a> :server-uri "/ajax"))</pre><p>Now we can define a function that we want to call from
+a web page. This function will take 'name' as an argument 
+and return a string with a greeting:</p><pre>(<a href="#defun-ajax"><tt>defun-ajax</tt></a> say-hi (name) (*ajax-processor*)
+  (concatenate 'string "Hi " name ", nice to meet you."))</pre><p>We can call this function from Lisp, for example if we want to
+        test it:</p><pre>HT-SIMPLE-AJAX> (say-hi "Martin")
+"Hi Martin, nice to meet you."</pre><p>Next, we setup and start a hunchentoot web server:</p><pre>(defparameter *my-server* 
+  (start (make-instance 'easy-acceptor :address "localhost" :port 8000)))</pre><p>We add our ajax processor to the hunchentoot dispatch table:</p><pre>(setq *dispatch-table* (list 'dispatch-easy-handlers 
+                             (<a href="#create-ajax-dispatcher"><tt>create-ajax-dispatcher</tt></a> *ajax-processor*)))</pre><p>Now we can already call the function from a http client:</p><pre>$ curl localhost:8000/ajax/SAY-HI?name=Martin
+&lt;?xml version="1.0"?>
+&lt;response xmlns='http://www.w3.org/1999/xhtml'>Hi Martin, nice to meet you.&lt;/response></pre><p>Alternatively, you can also paste the url above in a web browser</p><p>To conveniently call our function from within javascript, the
+        ajax processor can create a html script element with generated
+        javascript functions for each Lisp function:</p><pre>HT-SIMPLE-AJAX> (<a href="#generate-prologue"><tt>generate-prologue</tt></a> *ajax-processor*)
+"&lt;script type='text/javascript'>
+//&lt;![CDATA[ 
+function ajax_call(func, callback, args) {
+  // .. some helper code 
+}
+
+function ajax_say_hi (name, callback) {
+    ajax_call('SAY-HI', callback, [name]);
+}
+//]]>
+&lt;/script>"</pre><p>So for our example, the javascript function <tt>ajax_say_hi</tt> was generated. <tt>name</tt> is the parameter of the Lisp
+        function (if there are multiple parameters, then they will
+        also appear here) and <tt>callback</tt> is a function that
+        will be asynchronously called when the response comes back
+        from the web server. That function takes 1 argument, which is
+        the xml DOM object of the response.</p><p>Finally, we can put everything together and create a page that
+calls our function. For rendering html, we will use <a href="http://weitz.de/cl-who/">cl-who</a> in this example (note that ht-simple-ajax can be used
+        with any other template/ rendering system):</p><pre>(define-easy-handler (main-page :uri "/") ()
+  (with-html-output-to-string (*standard-output* nil :prologue t)
+    (:html :xmlns "http://www.w3.org/1999/xhtml"
+     (:head
+      (:title "ht-simple-ajax demo")
+      (princ (<a href="#generate-prologue"><tt>generate-prologue</tt></a> *ajax-processor*))
+      (:script :type "text/javascript" "
+// will show the greeting in a message box
+function callback(response) {
+  alert(response.firstChild.firstChild.nodeValue);
+}
+
+// calls our Lisp function with the value of the text field
+function sayHi() {
+  ajax_say_hi(document.getElementById('name').value, callback);
+}
+"))
+     (:body
+      (:p "Please enter your name: " 
+          (:input :id "name" :type "text"))
+      (:p (:a :href "javascript:sayHi()" "Say Hi!"))))))</pre><p>Direct your web browser to <i>http://localhost:8000</i> and try it out!</p><h3 id="dictionary">The HT-SIMPLE-AJAX dictionary</h3><p>You can also directly look at <a href="ht-simple-ajax.lisp">ht-simple-ajax.lisp</a>, it's fairly simple.</p><p class="description-header" id="ajax-processor">[Standard class]<br /><b>ajax-processor </b><i></i></p><p class="description">Maintains a list of lisp function that can be called from a
+     client page.</p><p class="description"><tt>:server-uri</tt> defines the absolute url for handling http ajax
+     requests (default <tt>&quot;/ajax&quot;</tt>).</p><p class="description"><tt>:content-type</tt> defines the http content type header for XML responses (default <tt>&quot;text/xml; charset=\&quot;utf-8\&quot;&quot;</tt>).</p><p class="description"><tt>:reply-external-format</tt> determines the format for the character output stream (default <tt>hunchentoot::+utf-8+</tt>).</p><p class="description-header" id="create-ajax-dispatcher">[Function]<br /><b>create-ajax-dispatcher </b><i>processor</i> <tt>=></tt> <i>dispatcher function</i></p><p class="description">Creates a hunchentoot dispatcher function that handles incoming
+     ajax requests. <i>processor</i> is an instance of <a href="#ajax-processor"><tt>ajax-processor</tt></a>.</p><p class="description-header" id="defun-ajax">[Macro]<br /><b>defun-ajax </b><i>name params (processor) <tt>&amp;body</tt> body</i> <tt>=></tt> <i>no values</i></p><p class="description">Declares a defun that can be called from a client page. <i>processor</i> is an instance of <a href="#ajax-processor"><tt>ajax-processor</tt></a>.</p><p class="description">See example above.</p><p class="description-header" id="generate-prologue">[Function]<br /><b>generate-prologue </b><i>processor</i> <tt>=></tt> <i>string</i></p><p class="description">Creates a <tt>&lt;script> ... &lt;/script></tt> html element that contains all the client-side javascript code
+     for the ajax communication. Include this script in the <tt>&lt;head> &lt;/head></tt> element of each html page. <i>processor</i> is an instance of <a href="#ajax-processor"><tt>ajax-processor</tt></a>.</p><h3 id="acknowledgements">Acknowledgements</h3><p>All credits should go to the original author of <a href="http://www.cliki.net/HT-AJAX">HT-AJAX</a>, who unfortunately doesn't maintain that library anymore.</p><p>The layout and structure of this page is heavily inspired
+       by (or directly copied from) <a href="http://weitz.de/documentation-template/">DOCUMENTATION-TEMPLATE</a>.</p><p>Last change: 2012/01/25 14:42:25 by <a href="http://martin-loetzsch.de/">Martin Loetzsch</a></p><hr /><p>Sponsored links</p><p><script type="text/javascript" src="http://martin-loetzsch.de/sponsoring/links-wide.js"></script><script type="text/javascript" src="http://martin-loetzsch.de/sponsoring/gads.js"></script></p><p><script type="text/javascript" src="http://martin-loetzsch.de/sponsoring/image-wide.js"></script><script type="text/javascript" src="http://martin-loetzsch.de/sponsoring/gads.js"></script></p><script src="http://www.google-analytics.com/ga.js" type="text/javascript"></script><script type="text/javascript">
+try { var pageTracker = _gat._getTracker('UA-12372300-1'); pageTracker._trackPageview();} catch(err) {}
+</script></body></html>

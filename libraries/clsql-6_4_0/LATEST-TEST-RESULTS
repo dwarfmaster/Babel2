@@ -1,0 +1,93 @@
+Note from Russ Tyndall <russ@acceleration.net> 2012-11-24 :
+
+This is the current results of running the test suite against all the database
+backends I have accessible, on SBCL / UBUNTU64bit.  It would be great to
+continue improving the test suite and skip tests that reliably fail, improve
+tests so that all pass.  In the interim, I would like know that I am not
+increasing the number of failing
+
+:mysql
+1 out of 298 total tests failed: :FDDL/CACHE-TABLE-QUERIES/1.
+
+:odbc MSSQL2000/5
+1 out of 265 total tests failed: :FDDL/CACHE-TABLE-QUERIES/1.
+
+:odbc postgres
+32 out of 309 total tests failed: :OODML/DB-AUTO-SYNC/4, :OODML/DB-AUTO-SYNC/3, 
+   :OODML/UPDATE-INSTANCE/7, :OODML/UPDATE-INSTANCE/6, :OODML/UPDATE-INSTANCE/5, 
+   :OODML/UPDATE-INSTANCE/4, :OODML/UPDATE-INSTANCE/3, :OODML/UPDATE-RECORDS/12, 
+   :OODML/UPDATE-RECORDS/11, :OODML/UPDATE-RECORDS/9-SLOTS, 
+   :OODML/UPDATE-RECORDS/9, :OODML/UPDATE-RECORDS/8, :OODML/UPDATE-RECORDS/7, 
+   :OODML/UPDATE-RECORDS/6, :OODML/UPDATE-RECORDS/5-SLOTS, 
+   :OODML/UPDATE-RECORDS/5, :OODML/UPDATE-RECORDS/4-SLOTS, 
+   :OODML/UPDATE-RECORDS/4, :OODML/SELECT/23, :OODML/SELECT/22, 
+   :OODML/SELECT/21, :OODML/SELECT/20, :OODML/SELECT/19, :OODML/SELECT/18, 
+   :OODML/SELECT/17, :OODML/SELECT/16, :OODML/SELECT/15, :OODML/SELECT/14, 
+   :OODML/SELECT/13, :OODML/SELECT/12, :FDML/SELECT/36, 
+   :FDDL/CACHE-TABLE-QUERIES/1.
+
+Most of these seem to have to do with not correctly dispatching AUTO_INCREMENT
+or not correctly skipping those tests
+
+
+:postgres-socket :postgres-socket-3
+5 out of 315 total tests failed: :TIME/PG/OODML/USEC, :TIME/PG/OODML/NO-USEC, 
+   :TIME/PG/FDML/USEC, :FDML/SELECT/36, :FDDL/CACHE-TABLE-QUERIES/1.
+
+:sqlite3
+9 out of 267 total tests failed: :FDDL/CACHE-TABLE-QUERIES/1, :FDDL/INDEX/3, 
+   :FDDL/ATTRIBUTES/8, :FDDL/ATTRIBUTES/7, :FDDL/ATTRIBUTES/6, 
+   :FDDL/ATTRIBUTES/5, :FDDL/ATTRIBUTES/4, :FDDL/ATTRIBUTES/3, 
+   :FDDL/ATTRIBUTES/2.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+Version 3.0.0 run on August 3, 2004 on x86, x86_64, and PowerPC platforms
+
+POSTGRESQL: All 233 tests passed (x86, Allegro CL Enterprise Edition).
+POSTGRESQL-SOCKET/POSTGRESQL: All 233 tests passed (x86, Allegro CL Enterprise Edition).
+MYSQL: All 213 tests passed (x86, Allegro CL Enterprise Edition).
+SQLITE: All 224 tests passed (x86, Allegro CL Enterprise Edition).
+ODBC/POSTGRESQL: All 232 tests passed (x86, Allegro CL Enterprise Edition).
+ODBC/MYSQL: All 213 tests passed (x86, Allegro CL Enterprise Edition).
+ORACLE: All 227 tests passed (x86, Allegro CL Enterprise Edition).
+AODBC/UNKNOWN: 23 of 231 tests failed (x86, Allegro CL Enterprise Edition).
+POSTGRESQL: All 233 tests passed (X86, CMU Common Lisp).
+POSTGRESQL-SOCKET/POSTGRESQL: All 233 tests passed (X86, CMU Common Lisp).
+MYSQL: All 213 tests passed (X86, CMU Common Lisp).
+SQLITE: All 224 tests passed (X86, CMU Common Lisp).
+ODBC/POSTGRESQL: All 232 tests passed (X86, CMU Common Lisp).
+ODBC/MYSQL: All 213 tests passed (X86, CMU Common Lisp).
+ORACLE: All 227 tests passed (X86, CMU Common Lisp).
+POSTGRESQL: All 233 tests passed (NIL, LispWorks).
+POSTGRESQL-SOCKET/POSTGRESQL: All 233 tests passed (NIL, LispWorks).
+MYSQL: All 213 tests passed (NIL, LispWorks).
+SQLITE: All 224 tests passed (NIL, LispWorks).
+ODBC/POSTGRESQL: All 232 tests passed (NIL, LispWorks).
+ODBC/MYSQL: All 213 tests passed (NIL, LispWorks).
+ORACLE: All 227 tests passed (NIL, LispWorks).
+POSTGRESQL: All 233 tests passed (X86, SBCL).
+POSTGRESQL-SOCKET/POSTGRESQL: All 233 tests passed (X86, SBCL).
+MYSQL: All 213 tests passed (X86, SBCL).
+SQLITE: All 224 tests passed (X86, SBCL).
+ODBC/POSTGRESQL: All 232 tests passed (X86, SBCL).
+ODBC/MYSQL: All 213 tests passed (X86, SBCL).
+ORACLE: All 227 tests passed (X86, SBCL).
+
+POSTGRESQL: All 233 tests passed (64-bit AMD64, Allegro CL Enterprise Edition).
+POSTGRESQL-SOCKET/POSTGRESQL: All 233 tests passed (64-bit AMD64, Allegro CL Enterprise Edition).
+MYSQL: All 223 tests passed (64-bit AMD64, Allegro CL Enterprise Edition).
+SQLITE: All 224 tests passed (64-bit AMD64, Allegro CL Enterprise Edition).
+ORACLE: All 227 tests passed (64-bit AMD64, Allegro CL Enterprise Edition).
+
+POSTGRESQL: All 233 tests passed (PowerPC, SBCL).
+POSTGRESQL-SOCKET/POSTGRESQL: All 233 tests passed (PowerPC, SBCL).
+MYSQL: All 217 tests passed (PowerPC, SBCL).
+SQLITE: All 224 tests passed (PowerPC, SBCL).
+ODBC/POSTGRESQL: All 232 tests passed (PowerPC, SBCL).
+ODBC/MYSQL: All 217 tests passed (PowerPC, SBCL).
+POSTGRESQL: All 233 tests passed (ppc, OpenMCL).
+POSTGRESQL-SOCKET/POSTGRESQL: All 233 tests passed (ppc, OpenMCL).
+MYSQL: All 217 tests passed (ppc, OpenMCL).
+SQLITE: All 224 tests passed (ppc, OpenMCL).
+ODBC/POSTGRESQL: All 232 tests passed (ppc, OpenMCL).
+ODBC/MYSQL: All 217 tests passed (ppc, OpenMCL).

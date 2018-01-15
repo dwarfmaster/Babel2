@@ -1,0 +1,15 @@
+lemma;negation;sem-class;position;operator-like;meaning
+nao;+;negation;pre;+; negation 
+nunca;+;negation;pre;+; never 
+ca;-;location;;+; here 
+raramente;-;temporal;;+; rarely 
+bem;-;intensity;;+; well 
+tambem;-;inclusion;pre;+; also 
+apenas;-;exclusion;pre;+; only 
+ainda;-;inclusion;pre;+; yet 
+ate;-;inclusion;;+; even 
+ja;-;temporal;pre;+; already 
+com_certeza;-;affirmation;;-; surely 
+so;-;exclusion;pre;+; just 
+ontem;-;temporal;;-; yesterday 
+sempre;-;temporal;;+; always 

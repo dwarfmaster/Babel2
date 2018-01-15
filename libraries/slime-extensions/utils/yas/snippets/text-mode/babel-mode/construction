@@ -1,0 +1,11 @@
+#name : construction template
+#contributor : Auto-generator by Jan Smeddinck
+# --
+(construction $1 ()
+  "Sample snippet ... these still need to be generated."
+  (interactive)
+  (let (var1)
+    (setq var1 some)
+    $0
+  )
+)
