@@ -1,0 +1,26 @@
+(custom-set-variables
+   '(show-paren-mode t)
+   '(size-indication-mode t)
+   '(tool-bar-mode nil)
+   '(transient-mark-mode t)
+   '(column-number-mode t)
+   '(indent-tabs-mode nil)
+   '(make-backup-files nil))
+
+(set-face-foreground 'font-lock-string-face "navy")
+
+(setq mac-allow-anti-aliasing t)
+;;(require 'mac-key-mode)
+;;(mac-key-mode 1)
+;;(pc-selection-mode 1)
+;;(setq mac-option-modifier 'meta)
+
+(add-to-list 'load-path "/home/<USER>/slime") ;; change this
+
+(require 'slime)
+(slime-setup '(slime-repl slime-autodoc slime-fancy-inspector))
+
+(setq inferior-lisp-program "<CCL>") ;; change this
+;; use this on a 32Bit Mac (only if your mac is pretty old)
+;;(setq inferior-lisp-program "<CCL>") ;; if needed, change this
+(command-execute 'slime)

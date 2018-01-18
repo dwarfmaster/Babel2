@@ -1,0 +1,193 @@
+(in-package :cl-user)
+
+;; Stack behaviour
+;;;; Automatically extends current stack by 50%.
+(hcl:extend-current-stack 50)
+;;;; Turns off all warnings, might not be handy for infinite loops.
+(setf system:*stack-overflow-behaviour* nil)
+
+;; Dismiss dialogue box when loading a file in unknown package.
+(setq editor::*unknown-package-during-process-file* :ignore)
+
+;; Set PATH variable right for gnuplot
+(setf (environment-variable "PATH")
+      (concatenate 'string "/usr/local/bin:/sw/bin:"
+      		   (environment-variable "PATH")))
+
+;; Overwrites a selection if your start typing
+(editor:delete-selection-mode-command)
+
+;;
+;; Default .lispworks of lw-add-ons
+;;
+
+(defvar *asdf-pathname* "/home/<USER>/Babel2/libraries/asdf.lisp"
+  "Where ASDF can be found.  This pathname should not have a type.")
+
+(defvar *asdf-base-dirs* '("/home/<USER>/Babel2")
+  "A list of directories \(note trailing slashes) which contain
+directories that contain ASDF system definitions.")
+
+(defvar *skip-if-no-asdf-file-found-p* nil
+  "If this variable has a true value, the process which searches for
+ASDF system definitions won't recurse into directories which don't
+contain system definitions themselves.")
+
+(defvar *working-dir* "/home/<USER>/Babel2"
+  "The working directory LW is supposed to switch to after loading
+this initialization file.")
+
+;; loads (and compiles, if needed) ASDF unless it's already in the
+;; image
+#-:asdf
+(handler-case
+  (when *asdf-pathname*
+    (load (or (compile-file-if-needed *asdf-pathname*)
+              *asdf-pathname*)))
+  (conditions:fasl-error ()
+    (load (compile-file *asdf-pathname*))))
+
+(defun walk-directory-for-asdf (dir)
+  "Looks into the directory DIR and all subdirectories and adds all
+directories which contain files of type \"asd\" to
+ASDF:*CENTRAL-REGISTRY*."
+  (dolist (dir-candidate (directory (lw:pathname-location dir)))
+    (when (lw:file-directory-p dir-candidate)
+      (let (found-some-p)
+        (let ((asd-candidate (merge-pathnames "*.asd" dir-candidate)))
+          (when (directory asd-candidate)
+            (setq found-some-p t)
+            (pushnew dir-candidate asdf:*central-registry* :test #'equal)))
+        (when (or found-some-p
+                  (not *skip-if-no-asdf-file-found-p*))
+          (walk-directory-for-asdf dir-candidate))))))
+
+(defun update-asdf-central-registry ()
+  "Loops through *ASDF-BASE-DIRS* recursively and adds all
+directories containing system definitions to ASDF's central
+registry."
+  (dolist (base-dir *asdf-base-dirs*)
+    (walk-directory-for-asdf base-dir)))
+
+(update-asdf-central-registry)
+
+(defmethod asdf:perform :around ((o asdf:load-op) (c asdf:cl-source-file))
+  "When trying to load a Lisp source file with ASDF that has a wrong
+FASL version recompiles it."
+  ;; from Bill Clementson's blog
+  (handler-case
+    (call-next-method o c)
+    (conditions:fasl-error ()
+      (asdf:perform (make-instance 'asdf:compile-op) c)
+      (call-next-method))))
+
+(defun asdf (lib)
+  "Shortcut for ASDF."
+  (asdf:oos 'asdf:load-op lib))
+
+;; `canonical' indentation for IF
+(editor:setup-indent "if" 1 2 4)
+
+;; file types for Lisp mode
+(editor:define-file-type-hook
+    ("lispworks" "lisp" "lsp" "cl" "asd")
+    (buffer type)
+  (declare (ignore type))
+  (setf (editor:buffer-major-mode buffer) "Lisp"))
+
+;; the following two forms make sure the "Find Source" command works
+;; with the editor source
+#-:lispworks-personal-edition
+(load-logical-pathname-translations "EDITOR-SRC")
+
+#-:lispworks-personal-edition
+(setf dspec:*active-finders*
+        (append dspec:*active-finders*
+                (list "EDITOR-SRC:editor-tags-db")))
+
+;; if I press ESC followed by < during a search operation I want to go
+;; to the beginning of the buffer and /not/ insert the #\< character
+(editor::set-logical-char= #\escape :exit nil
+                           (editor::editor-input-style-logical-characters
+                            editor::*emacs-input-style*))
+
+(change-directory *working-dir*)
+
+(asdf :lw-add-ons)
+
+;; select backup "strategy"
+(setq lw-add-ons:*make-backup-filename-function*
+      'lw-add-ons:make-backup-filename-using-backup-directory)
+
+
+(editor:bind-key "Insert Space and Show Arglist" #\Space :mode "Lisp")
+(editor:bind-key "Insert Space and Show Arglist" #\Space :mode "Execute")
+
+(editor:bind-string-to-key "#" #\meta-\3)
+(editor:bind-string-to-key "~" #\meta-\`)
+
+
+(editor:bind-key "Compile Defun" #(#\control-\c #\control-\c) :mode "Lisp")
+(editor:bind-key "Compile and Load Buffer File" #(#\control-\c #\control-\k) :mode "Lisp")
+
+(editor:bind-key "Tools Apropos" #(#\control-\c #\control-\a))
+
+(editor:bind-key "Toggle Trace" #(#\control-\c #\control-\t) :mode "Lisp")
+
+(editor:bind-key "Evaluate Last Form And Inspect" #(#\control-\c #\i))
+(editor:bind-key "Evaluate Last Form And Describe" #(#\control-\c #\d))
+
+(editor:bind-key "Set Mark And Highlight" #\control-\@)
+(editor:bind-key "Set Mark And Highlight" #\control-space)
+
+(editor:bind-key "Indent and Complete Symbol" #\Tab)
+
+(editor:bind-key "Meta Documentation" "F5")
+
+(editor:bind-key "Insert \()" #\control-\( :mode "Lisp")
+(editor:bind-key "Insert \()" #\control-\( :mode "Execute")
+
+(editor:bind-key "Indent New Line" #\Return :mode "Lisp")
+
+#+:editor-does-not-have-go-back
+(editor:bind-key "Pop Definitions Stack" #\control-\Backspace)
+
+#-:editor-does-not-have-go-back
+(editor:bind-key "Go Back" #\control-\Backspace)
+
+#-:editor-does-not-have-go-back
+(editor:bind-key "Select Go Back" #(#\control-\c #\Backspace))
+
+(editor:bind-key "Macroexpand Form" #(#\control-\c #\Return))
+(editor:bind-key "Walk Form" #(#\control-\x #\Return))
+
+(editor:bind-key "Maybe Invoke Listener Shortcut" #\, :mode "Execute")
+
+(editor:bind-key "Tools Listener" "F12")
+(editor:bind-key "Tools Editor" "F11")
+
+;;
+;; End of default .lispworks of lw-add-ons
+;;
+
+;; Some home-brewn keybindings
+
+;; different function keys as the standard (F11 and F12) have a
+;; different use in Mac OS X (for consistency)
+(editor:bind-key "Tools Listener" "F6")
+(editor:bind-key "Tools Editor" "F7")
+
+(editor:bind-key "Clear Listener" #(#\control-\c #\control-\l))
+(editor:bind-key "Clear Output" #(#\control-\c #\control-\o))
+
+(editor:bind-key "Forward Form" #(#\meta-\control-\Right))
+(editor:bind-key "Backward Form" #(#\meta-\control-\Left))
+
+#+:editor-does-not-have-go-back
+(editor:bind-key "Pop Definitions Stack" #\meta-\,)
+
+#-:editor-does-not-have-go-back
+(editor:bind-key "Go Back" #\meta-\,)
+
+;; load init-babel to get *babel-path* right
+(load "/home/<USER>/Babel2/init-babel.lisp")
