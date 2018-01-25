@@ -130,8 +130,73 @@ echo "== 3: Graphviz =="
 apt_install "dot" "graphviz"
 echo
 
+echo "== 4: Editors =="
+echo "There are several editors you can use for Babel development."
+echo "We recommend the installation of Emacs. This is the default."
+echo
+echo "You can also use the professional editor Lispworks for development."
+echo "However, the free version of Lispworks won't work with Babel due to memory limits."
+echo "We can't install Lispworks for you, but we can set up the config for Babel."
+echo
+echo "Note that you will need to install additional packages when using Sublime Text to enjoy the full Lisp experience"
+echo "First, install Package Control. Use this to install the following packages:"
+echo "SublimeREPL, rainbowth, Load File to REPL, BracketHighlighter and lispindent"
+echo "PLEASE BE NOTED that development in Sublime Text is not fully supported by our team"
+echo
+read -n1 -rsp "Press S to skip, L for Lispworks, T for Sublime Text, Ctrl+C to abort, or any other key for Emacs: " KEY
+echo
+if [ "$KEY" = 'S' -o "$KEY" = 's' ]; then
+	echo "Skipping editor."
+	echo
+elif [ "$KEY" = 'L' -o "$KEY" = 'l' ]; then
+	echo
+	echo "== 4: Lispworks settings =="
+	home_settings ".lispworks" "lispworks-babel" "Lispworks"
+	echo
+elif [ "$KEY" = 'T' -o "$KEY" = 't' ]; then
+	echo 
+	echo "== 4: Sublime Text editor =="
+	wget -qO - https://download.sublimetext.com/sublimehq-pub.gpg | sudo apt-key add -
+	echo "deb https://download.sublimetext.com/ apt/stable/" | sudo tee /etc/apt/sources.list.d/sublime-text.list
+	sudo apt update && sudo apt install sublime-text
+	echo
+else
+	echo
+	echo "== 4: Emacs editor =="
+	apt_install "emacs" "emacs"
+	echo
 
-echo "== 4: Babel2 framework =="
+
+	echo "== 4a: Slime plugin =="
+	# see if there is a path to load slime from somewhere
+	(cat ~/.emacs | sed -Ene "s/\(add-to-list 'load-path \"(.*)\"\).*$/\1/p" | grep slime ||
+	# check also default loading folder ~/.emacs.d/
+	find ~/.emacs.d -type f -name '*slime*')
+	if [ $? -eq 0 ]; then
+		echo "Slime detected, skipping"
+	else
+		# apt-get slime insists on using SBCL and can't be reasoned with
+		(wget http://common-lisp.net/project/slime/snapshots/slime-current.tgz &&
+		 mkdir -p ~/slime &&
+		 tar xzf slime-current.tgz -C ~/slime --strip-components 1 &&
+		 rm slime-current.tgz)
+		if [ $? -eq 0 ]; then
+			echo "Installed."
+		else
+			rm -rf ~/slime
+			rm slime-current.tgz
+			echo "Something wrong has happened, aborting. Contact the Babel team for help."
+			exit 1
+		fi
+	fi
+	echo
+	echo "== 4b: Emacs/Slime settings =="
+	home_settings ".emacs" "emacs-babel" "Emacs"
+	echo
+fi
+
+
+echo "== 5: Babel2 framework =="
 ls ~/Babel2
 if [ $? -eq 0 ]; then
 	echo "Babel2 detected, skipping."
@@ -155,12 +220,24 @@ else
 fi
 echo
 
-echo "== 4b: Babel2 config for CCL =="
+echo "== 6: Babel2 config for CCL =="
 home_settings ".ccl-init.lisp" "ccl-init-babel.lisp" "CCL init"
 echo
 
+echo "== 7: Quicklisp =="
+ls ~/quicklisp
+if [ $? -eq 0 ]; then
+	echo "Quicklisp detected, skipping."
+else
+	echo "Quicklisp has not been found"
+	echo "Installing..."
+	curl -O "https://beta.quicklisp.org/quicklisp.lisp"
+	ccl -l quicklisp.lisp -e "(quicklisp-quickstart:install)(ql:quickload :cl-ppcre)(ql:quickload :cl-who)(ccl:quit)"
+	rm quicklisp.lisp
+	echo "Installed."
+fi
 
-echo "== 4c: Testing babel2 =="
+echo "== 8: Testing babel2 =="
 # we omit the browser test because it entails keeping ccl running and it complicates matters
 # it usually never fails anyway (compared to possible graphviz/gnuplot issues)
 echo "The test consists in opening a PDF file with a diagram and displaying a window with a sinus function."
@@ -181,74 +258,6 @@ else
 	echo
 fi
 echo
-
-
-echo "== 5: Editors =="
-echo "There are several editors you can use for Babel development."
-echo "We recommend the installation of Emacs. This is the default."
-echo
-echo "You can also use the professional editor Lispworks for development."
-echo "However, the free version of Lispworks won't work with Babel due to memory limits."
-echo "We can't install Lispworks for you, but we can set up the config for Babel."
-echo
-echo "Note that you will need to install additional packages when using Sublime Text to enjoy the full Lisp experience"
-echo "First, install Package Control. Use this to install the following packages:"
-echo "SublimeREPL, rainbowth, Load File to REPL, BracketHighlighter and lispindent"
-echo "PLEASE BE NOTED that development in Sublime Text is not fully supported by our team"
-echo
-read -n1 -rsp "Press S to skip, L for Lispworks, T for Sublime Text, Ctrl+C to abort, or any other key for Emacs: " KEY
-echo
-if [ "$KEY" = 'S' -o "$KEY" = 's' ]; then
-	echo "Skipping editor."
-	echo
-elif [ "$KEY" = 'L' -o "$KEY" = 'l' ]; then
-	echo
-	echo "== 5: Lispworks settings =="
-	home_settings ".lispworks" "lispworks-babel" "Lispworks"
-	echo
-elif [ "$KEY" = 'T' -o "$KEY" = 't' ]; then
-	echo 
-	echo "== 8: Sublime Text editor =="
-	wget -qO - https://download.sublimetext.com/sublimehq-pub.gpg | sudo apt-key add -
-	echo "deb https://download.sublimetext.com/ apt/stable/" | sudo tee /etc/apt/sources.list.d/sublime-text.list
-	sudo apt update && sudo apt install sublime-text
-	echo
-else
-	echo
-	echo "== 5: Emacs editor =="
-	apt_install "emacs" "emacs"
-	echo
-
-
-	echo "== 6: Slime plugin =="
-	# see if there is a path to load slime from somewhere
-	(cat ~/.emacs | sed -Ene "s/\(add-to-list 'load-path \"(.*)\"\).*$/\1/p" | grep slime ||
-	# check also default loading folder ~/.emacs.d/
-	find ~/.emacs.d -type f -name '*slime*')
-	if [ $? -eq 0 ]; then
-		echo "Slime detected, skipping"
-	else
-		# apt-get slime insists on using SBCL and can't be reasoned with
-		(wget http://common-lisp.net/project/slime/snapshots/slime-current.tgz &&
-		 mkdir -p ~/slime &&
-		 tar xzf slime-current.tgz -C ~/slime --strip-components 1 &&
-		 rm slime-current.tgz)
-		if [ $? -eq 0 ]; then
-			echo "Installed."
-		else
-			rm -rf ~/slime
-			rm slime-current.tgz
-			echo "Something wrong has happened, aborting. Contact the Babel team for help."
-			exit 1
-		fi
-	fi
-	echo
-
-
-	echo "== 7: Emacs/Slime settings =="
-	home_settings ".emacs" "emacs-babel" "Emacs"
-	echo
-fi
 
 
 echo

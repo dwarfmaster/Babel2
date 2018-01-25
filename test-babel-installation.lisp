@@ -41,7 +41,9 @@
 
 ;;;;; The next expression loads the most of the Babel2 systems. If
 ;;;;; that does not work, one of the steps above went wrong.
-(asdf:operate 'asdf:load-op :irl)
+
+;(asdf:operate 'asdf:load-op :irl)
+(ql:quickload :irl)
 
 
 ;;;;; If all of the above works you have the minimal requirements to
@@ -62,7 +64,8 @@
 (progn #+hunchentoot-available-on-this-platform (print "yes!"))
 
 ;;;;; The following line will load the web-interface:
-(asdf:operate 'asdf:load-op :web-interface)
+;(asdf:operate 'asdf:load-op :web-interface)
+(ql:quickload :web-interface)
 
 
 ;;;;; Open your web browser, preferably firefox, safari or

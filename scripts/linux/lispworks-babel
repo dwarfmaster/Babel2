@@ -21,6 +21,18 @@
 ;; Default .lispworks of lw-add-ons
 ;;
 
+;; download http://beta.quicklisp.org/quicklisp.lisp and load it -
+;; details at http://www.quicklisp.org/
+
+#-:quicklisp
+(let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp"
+                                       (user-homedir-pathname))))
+  (when (probe-file quicklisp-init)
+    (load quicklisp-init)))
+
+#-:quicklisp
+;; if your LispWorks is new enough to already have ASDF on board, you
+;; don't have to worry about this
 (defvar *asdf-pathname* "/home/<USER>/Babel2/libraries/asdf.lisp"
   "Where ASDF can be found.  This pathname should not have a type.")
 
@@ -39,7 +51,11 @@ this initialization file.")
 
 ;; loads (and compiles, if needed) ASDF unless it's already in the
 ;; image
-#-:asdf
+#-(or :asdf :quicklisp)
+(ignore-errors
+  ;; should do it unless you have a very old LW version
+  (require :asdf))
+#-(or :asdf :quicklisp)
 (handler-case
   (when *asdf-pathname*
     (load (or (compile-file-if-needed *asdf-pathname*)
@@ -85,8 +101,27 @@ FASL version recompiles it."
   "Shortcut for ASDF."
   (asdf:oos 'asdf:load-op lib))
 
+#+:lispworks7
+(defadvice (editor:complete-symbol-command use-other-completion :around
+                                           :documentation "`Indent or
+Complete Symbol' is cool, but the completion command used is
+hard-coded, so I change it here.")
+    (p)
+  (editor::abbreviated-complete-symbol-command p))
+
 ;; `canonical' indentation for IF
 (editor:setup-indent "if" 1 2 4)
+
+;; `canonical' indentation for FLI:DEFINE-FOREIGN-FUNCALLABLE
+#-(or :lispworks5 :lispworks6 :lispworks7)
+(editor:setup-indent "define-foreign-funcallable" 2 2 4)
+
+;; `canonical' indentation for DEFINE-SYMBOL-MACRO
+#+(or :lispworks4 :lispworks5.0)
+(editor:setup-indent "define-symbol-macro" 1)
+
+;; `canonical' indentation for DEFPARSER
+(editor:setup-indent "defparser" 1)
 
 ;; file types for Lisp mode
 (editor:define-file-type-hook
