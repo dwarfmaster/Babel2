@@ -86,10 +86,12 @@
 
 ;; The address is http://localhost:8000/ or, if you add something like
 ;; (defparameter *web-server-host-address* "my-machine")
-;; to your init.lisp, http://my-machine:8000/
+;; to your init-babel-user.lisp, http://my-machine:8000/
 (defvar *address* (if (boundp 'cl-user::*web-server-host-address*)
-		      (eval 'cl-user::*web-server-host-address*)
-		      "localhost"))
+                    (eval 'cl-user::*web-server-host-address*)
+                    #+:windows "127.0.0.1" ;; on windows localhost doesn't seem to resolve to 127.0.0.1
+                    #-:windows "localhost" 
+                    ))
 
 ;; address and port
 (defvar *port* (if (boundp 'cl-user::*web-server-port*)
@@ -103,7 +105,7 @@
               *address* *port*)
       (progn
 	(setf *my-server* 
-              (start (make-instance 'easy-acceptor
+              (start (make-instance 'easy-acceptor 
                                     :port port :address address
                                     #+(and ccl :windows) :read-timeout #+(and ccl :windows) nil ;; this only applies to windows
                                     #+(and ccl :windows) :write-timeout #+(and ccl :windows) nil
