@@ -97,9 +97,9 @@ name strings and the name of an internal module itself."
           :cl-user))
 
 (let ((load-op (load-time-value
-                 (make-instance 'asdf:load-op)))
+                (asdf/operation:make-operation 'ASDF/LISP-ACTION:BASIC-LOAD-OP)))
       (compile-op (load-time-value
-                    (make-instance 'asdf:compile-op))))
+                    (asdf/operation:make-operation 'ASDF/LISP-ACTION:BASIC-COMPILE-OP))))
   (defun translate-module (module &optional parent-names)
     "Translates the ASDF module MODULE into a Common Defsystem
 system definition.  If the module is not a `stand-alone' system
