@@ -14,9 +14,10 @@
 
 (defun pipe-to-gnuplot ()
   "Starts a gnuplot process and returns a stream for writing to that process"
-   (pipe-output #+(or :win32 :windows) "pgnuplot" 
-                #-(or :win32 :windows) "gnuplot"
-                :args (list "-persist" "-") :wait nil))
+   (let ((stream (pipe-output  "gnuplot"
+                               :args (list "-persist" "-") :wait nil)))
+     #+(or :win32 :windows) (format stream "set terminal qt~%")
+     stream))
 
 
 ;; ############################################################################

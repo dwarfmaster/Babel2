@@ -12,7 +12,7 @@ from naoqi import ALProxy
 
 class NaoMovement(object):
 
-    def __init__(self, ip, port):
+    def __init__(self, ip, port, *args, **kwargs):
         # Init proxies.
         try:
             self.motionProxy = ALProxy("ALMotion", ip, port)
@@ -39,14 +39,14 @@ class NaoPosture(NaoMovement):
     def __init__(self, ip, port, *args, **kwargs):
         super(NaoPosture, self).__init__(ip, port, *args, **kwargs)
 
-    def set(self, posture="Stand"):
-        ''' Go to the given posture '''
+    def set(self, posture="Stand", speed=0.3):
+        """ Go to the given posture """
         self.stiffness_on(self.motionProxy)
-        success = self.postureProxy.goToPosture(str(posture), 0.5)
+        success = self.postureProxy.goToPosture(str(posture), float(speed))
         return json.dumps({'response': int(success)})
 
     def get(self):
-        ''' Get the current posture '''
+        """ Get the current posture """
         posture = self.postureProxy.getPosture()
         return json.dumps({'posture': posture})
 
@@ -62,10 +62,10 @@ class NaoJoints(NaoMovement):
     def __init__(self, ip, port, *args, **kwargs):
         super(NaoJoints, self).__init__(ip, port, *args, **kwargs)
 
-    def do(self, joint="HeadPitch", value=0.0):
-        ''' Move the given joint to a given value '''
+    def do(self, joint="HeadPitch", value=0.0, speed=0.3):
+        """ Move the given joint to a given value """
         self.stiffness_on(self.motionProxy)
-        self.motionProxy.setAngles(str(joint), value, 0.3)
+        self.motionProxy.setAngles(str(joint), value, float(speed))
         return json.dumps({'response': 1})
 
 
@@ -80,7 +80,7 @@ class NaoSpeak(object):
             print("Error was: ", e)
 
     def do(self, speech=""):
-        ''' Say something '''
+        """ Say something """
         self.ttsProxy.say(str(speech))
         return json.dumps({'speech': speech})
 
@@ -128,7 +128,7 @@ class NaoRaiseArm(NaoMovement):
         return json.dumps({'response': 1})
 
     def do(self, arm=""):
-        ''' Raise the left or right arm '''
+        """ Raise the left or right arm """
 
         # Set Stiffness on
         self.stiffness_on(self.motionProxy)
@@ -152,7 +152,7 @@ class NaoRaiseArm(NaoMovement):
 
 #         # Set Stiffness on
 #         self.stiffness_on(self.motionProxy)
- 
+
 #         # Raise the arm and put back
 #         LcurrentAngle = self.motionProxy.getAngles("LShoulderPitch", False)[0]
 #         RcurrentAngle = self.motionProxy.getAngles("RShoulderPitch", False)[0]

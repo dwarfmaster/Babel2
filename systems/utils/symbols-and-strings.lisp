@@ -291,3 +291,16 @@ string will consist solely of decimal digits and ASCII letters."
     (if index-word-end
       (subseq string (+ 1 index-word-end))
       string)))
+
+
+;; ############################################################################
+
+(export '(hyphenize))
+
+(defun hyphenize (string-with-spaces)
+  (string-replace string-with-spaces " " "-")
+  )
+
+;;(hyphenize "the ocean")
+
+

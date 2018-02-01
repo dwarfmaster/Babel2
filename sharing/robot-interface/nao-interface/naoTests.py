@@ -12,8 +12,7 @@ class NaoTestConnection():
         self.port = port
 
     def do(self, testMessage=""):
-        ''' Test the connection. Simply sends back the received message '''
-        self.data = {}
-        self.data['testMessage'] = testMessage
-        self.json_data = json.dumps(self.data)
-        return self.json_data
+        """ Test the connection. Simply sends back the received message """
+        data = {"testMessage": testMessage}
+        json_data = json.dumps(data)
+        return json_data

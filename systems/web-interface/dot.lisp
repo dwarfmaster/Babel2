@@ -50,7 +50,7 @@
         ;; on windows the dot tool does not run if it can't write to stdout
         ;; so we also have to open an input pipe
         (input output "dot" (mkstr "-T" format) "-o"
-               #+(or :win32 :windows) (format nil "\"c:~a\"" (mkstr path))
+               #+(or :win32 :windows) (format nil "c:~a" path)
                #-(or :win32 :windows) (mkstr path))
       (s-dot:s-dot->dot input s-dot-expression)
       (when input (close input))
@@ -75,7 +75,7 @@
          (run-prog "cmd" 
                    :args (list "/C"
                                (string-replace 
-                                (format nil "\"c:~a\"" path) "/" "\\"))))))
+                                (format nil "c:~a" path) "/" "\\"))))))
     path))
 
 
