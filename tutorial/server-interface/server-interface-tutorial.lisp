@@ -1,4 +1,5 @@
 
+
 (in-package :cl-user)
 
 ;; ###########################################
@@ -9,19 +10,18 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; First of all, we need to load the package:
-(asdf:operate 'asdf:load-op :server-interface)
+(ql:quickload :server-interface)
 
 ;; As, in this demo, we want to use it in combination with fcg,
 ;; we also load the fcg package, and we we'll load a demo grammar as well.
 
-(asdf:operate 'asdf:load-op :fcg)
-(in-package :fcg)
-(load-demo-grammar)
+(ql:quickload :fcg)
+(fcg:load-demo-grammar)
 
 ;; Start the server, by default at port 8920
 ;; You can add :port xxxx as a key to start-server,
 ;; or set *ext-web-server-port* and *web-server-host-address* in your init file.
-(si::start-server)
+(si:start-server)
 
 ;; Writing a handle-http-request method
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -36,15 +36,15 @@
 ;; The HTTP call should always have handler-method 
 ;; Other information goes automatically in 'data'
 
-(defmethod si::handle-http-request (http-request request-type (handler-method (eql :comprehend)))
-  (let* ((data (cdr (assoc "DATA" http-request :test 'equalp)))
-         (utterance (cdr (assoc "UTTERANCE" data :test 'equalp))))
-    (comprehend utterance :silent t)))
+(defmethod si:handle-http-request (http-request request-type (handler-method (eql :comprehend)))
+  (let* ((data (cdr (assoc :data http-request)))
+         (utterance (cdr (assoc :utterance data))))
+    (fcg:comprehend utterance :silent t)))
 
-(defmethod si::handle-http-request (http-request request-type (handler-method (eql :formulate)))
-  (let* ((data (cdr (assoc "DATA" http-request :test 'equalp)))
-         (meaning (cdr (assoc "MEANING" data :test 'equalp))))
-    (string-trim "()" (format nil "~a" (formulate (read-from-string meaning) :silent t)))))
+(defmethod si:handle-http-request (http-request request-type (handler-method (eql :formulate)))
+  (let* ((data (cdr (assoc :data http-request)))
+         (meaning (cdr (assoc :meaning data))))
+    (string-trim "()" (format nil "~a" (fcg:formulate (read-from-string meaning) :silent t)))))
 
 ;; Sending Requests
 ;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -52,9 +52,9 @@
 ;; Now we can just send the http request, e.g. using cURL
 ;; Paste the following line in your terminal, and watch the response
 
-;; curl 'http://localhost:8920' -d handler-method=comprehend -d 'utterance=the linguist likes the mouse'
+;; curl 'http://localhost:8920' -d '{"handler-method": "comprehend", "utterance": "the linguist likes the mouse"}'
 ;; AND
-;; curl 'http://localhost:8920' -d handler-method=formulate -d 'meaning=((DEEP-AFFECTION X-138 Y-51) (UNIQUE Y-51) (MOUSE Y-51) (UNIQUE X-138) (LINGUIST X-138))'
+;; curl 'http://localhost:8920' -d '{"handler-method": "formulate", "meaning": "((DEEP-AFFECTION X-138 Y-51) (UNIQUE Y-51) (MOUSE Y-51) (UNIQUE X-138) (LINGUIST X-138))"}'
 ;;
 ;; Congratulations:: you have succesfully set up an FCG server!!
 ;;
@@ -64,5 +64,4 @@
 ;;  if you didn't use the default)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(si::stop-server)
-
+(si:stop-server)

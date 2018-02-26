@@ -73,6 +73,10 @@
                 (get-construction-inventory-title-string (original-cxn-set (construction-inventory cip)))
                 (size (original-cxn-set (construction-inventory cip))))
      (make-html (original-cxn-set (construction-inventory cip))))
+     #+:type-hierarchies ,(if (type-hierarchies::get-type-hierarchy (original-cxn-set (construction-inventory cip)))
+                            (make-html (type-hierarchies::get-type-hierarchy (original-cxn-set (construction-inventory cip)))
+                                       :weights? t :render-program "circo")
+                           "")
      " in "
      ,(if (eq (direction cip) '->) "formulation" "comprehension"))))
 
@@ -91,7 +95,12 @@
    `((h3) ,(if (typep n 'integer)
              (format nil "Computing max ~a solutions for application of " n)
              "Computing all solutions for application of ")
-     ,(make-html (original-cxn-set construction-inventory)) " in "
+     ,(make-html (original-cxn-set construction-inventory))
+     #+:type-hierarchies ,(if (type-hierarchies::get-type-hierarchy (original-cxn-set construction-inventory))
+                            (make-html (type-hierarchies::get-type-hierarchy (original-cxn-set (construction-inventory cip)))
+                                       :weights? t :render-program "circo")
+                           "")
+     " in "
      ,(if (eq direction '->) "formulation" "comprehension"))))
 
 (define-event-handler (trace-fcg fcg-apply-w-n-solutions-finished)

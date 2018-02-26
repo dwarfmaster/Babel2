@@ -2,7 +2,7 @@
 ;; supports ccl and lispworks as host 
 ;; and anything else as inferior
 
-(asdf:operate 'asdf:load-op :test-framework)
+;; (asdf:operate 'asdf:load-op :test-framework)
 
 (defpackage :load-and-test
   (:use :common-lisp :cl-user :test-framework))
@@ -83,6 +83,7 @@ string will consist solely of decimal digits and ASCII letters."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; main test function
 
+#|
 (defun load-and-test-package (test-package lisp-command
                               &key (path (merge-pathnames 
                                           (make-pathname 
@@ -96,11 +97,12 @@ string will consist solely of decimal digits and ASCII letters."
   (format t "~2%.. load and test package ~(~s~) in ~s~2%" 
           test-package
           (car lisp-command))
-  (let* ((output (merge-pathnames 
-                  path 
-                  (make-pathname :name (format nil "load-and-test-~a-out" 
-                                               (make-random-string 10))
-                                 :type "lisp"))))
+  (let* ((output (ensure-directories-exist
+                  (merge-pathnames 
+                   path 
+                   (make-pathname :name (format nil "load-and-test-~a-out" 
+                                                (make-random-string 10))
+                                  :type "lisp")))))
     ;; 1) clean (nix only) - run bash clean.sh
     (when clean (clean-babel :verbose verbose))
     ;; 2) run external/inferior lisp
@@ -149,7 +151,7 @@ string will consist solely of decimal digits and ASCII letters."
                  
                  (format t "~%writing results to ~s." ,output)
                  (with-open-file (stream ,output
-                                         :direction :output :if-exists :supersede)
+                                         :direction :output :if-exists :supersede :if-does-not-exist :create)
                    (format stream "~%(~S ~S ~S ~S)"                            
                            (cons :errors
                                  (loop for e in *errors*
@@ -243,8 +245,9 @@ string will consist solely of decimal digits and ASCII letters."
         ;; read in results
         (when verbose
           (format t "~%.. finished inferior process. reading results."))
+        (format t "Probing output file returned ~a~%" (probe-file output))
         (with-open-file (stream output
-                                :direction :input)
+                                :direction :input :if-does-not-exist :create)
           (read stream))))))
 
 (defun load-and-test-packages 
@@ -255,37 +258,111 @@ string will consist solely of decimal digits and ASCII letters."
      clean
      verbose)
   "pass some packages and it will be loading them"
-  (loop 
-     for package in packages
-     append (loop for (lisp . command) in lisp-commands
-               collect (list package lisp 
-                             (load-and-test-package package command 
-                                                    :clean clean
-                                                    :verbose verbose)))))
+  ;; No need to iterate through Lisp implementations,
+  ;; since cl-travis will take care of this
+  (loop for package in packages
+        for lisp = #+ccl "ccl"
+                   #+lispworks "lw"
+        for command = (rest (assoc lisp lisp-commands :test #'string=))
+        collect (list package lisp
+                      (load-and-test-package package command
+                                             :clean clean
+                                             :verbose verbose))))
+|#
+
+(defun load-and-test-package (test-package &key clean verbose)
+  (format t "~2%.. load and test package ~(~s~)%" 
+          test-package)
+  ;; 1) clean (nix only) - run bash clean.sh
+  (when clean
+    (clean-babel :verbose verbose))
+  ;; 2) run tests
+  (let ((*errors* nil)
+        (*warnings* nil))
+    (setf *automatically-start-web-interface* nil)
+    (setf asdf::*compile-file-warnings-behaviour* :warn)
+    ;; (setf asdf::*compile-file-errors-behaviour* :error)
+    (setf asdf::*compile-file-failure-behaviour* :error)
+    ;; (asdf:operate 'asdf:load-op :test-framework)
+    (setf test-framework::*raise-errors* t)
+
+    (setf test-framework::*all-tests* nil)
+    (setf test-framework::*run-tests-error-messages* nil)
+    
+    (format t "~%testing ~a" test-package)
+    (catch 'abort
+      (handler-bind
+          ((asdf::style-warning #'(lambda (e)
+                                    (format t "~%STYLE: ~a" e)
+                                    (push e *warnings*)
+                                    (muffle-warning)))
+           (warning #'(lambda (e)
+                        (format t "~%WARNING: ~a" e)
+                        (push e *warnings*)
+                        (muffle-warning)))
+           (error 
+            #'(lambda (e)
+                (format t "~%ERROR: ~a" e)
+                (push e *errors*)
+                (or (and (find-restart 'asdf::accept)
+                         (invoke-restart 'asdf::accept))
+                    (continue)
+                    (abort)
+                    (throw 'abort nil)))))
+        (asdf:load-system test-package)))
+    (format t "~%finished asdf load-op.")
+    (format t "~%loaded successfully ~a" (not *errors*))
+    (format t "~%# errors: ~a" (length *errors*))
+    (format t "~%# warnings: ~a" (length *warnings*))
+    (format t "~%# run tests: ~a" (length test-framework::*all-tests*))
+    (format t "~%# errors in tests: ~a" 
+            (length test-framework::*run-tests-error-messages*))
+    ;; 3) collect results
+    (list (cons :errors
+                (loop for e in *errors*
+                      collect (format nil "~a" e)))
+          (cons :warnings
+                (loop for e in *warnings*
+                      collect (format nil "~a" e)))
+          (cons :run-tests-errors
+                (loop for m in test-framework::*run-tests-error-messages*
+                      collect (list (package-name (symbol-package (first m)))
+                                    (symbol-name (first m))
+                                    (second m))))
+          (cons :run-tests
+                (loop for e in test-framework::*all-tests*
+                      collect (format nil "~a" e))))))
+  
+
+(defun load-and-test-packages (packages &key clean verbose)
+  (loop for package in packages
+        collect (list package (load-and-test-package package :clean clean :verbose verbose))))
 
 (defun print-load-and-test-results (results)
-  (loop 
-     for res in results
-     for report = (third res)
-     for errors = (cdr (assoc :errors report))
-     for warnings = (cdr (assoc :warnings report))
-     for run-tests-errors = (cdr (assoc :run-tests-errors report))
-     ;; for run-tests = (second (assoc :run-tests report))
-     do (format t "~%~(~a - ~a - ~a~)" (first res) (second res)
-                (cond
-                  ((and (null errors) (null warnings)(null run-tests-errors)) 
-                   "ok")
-                  (errors "error(s) on load")
-                  (t (format nil "warnings: ~3s / test errors: ~3s" 
-                             (length warnings)
-                             (length run-tests-errors)))))))
+  (loop for res in results
+        for report = (second res)
+        for errors = (cdr (assoc :errors report))
+        for warnings = (cdr (assoc :warnings report))
+        for run-tests-errors = (cdr (assoc :run-tests-errors report))
+        ;; for run-tests = (second (assoc :run-tests report))
+        do (format t "~%~(~a - ~a~)" (first res)
+                   (cond ((and (null errors) (null warnings)(null run-tests-errors)) 
+                          "ok")
+                         (errors "error(s) on load")
+                         (t (format nil "warnings: ~3s / test errors: ~3s" 
+                                    (length warnings)
+                                    (length run-tests-errors)))))))
 
-;; (progn (setf *results* (load-and-test-packages '(:irl-2012) :clean t :verbose nil)) (print-load-and-test-results *results*))
+(defun test-succeeded? (results)
+  (loop for res in results
+        for report = (second res)
+        for errors = (cdr (assoc :errors report))
+        for run-tests-errors = (cdr (assoc :run-tests-errors report))
+        collect (and (null errors)
+                     (null run-tests-errors))))
 
-;; (progn (setf *results* (load-and-test-packages '(:utils-2012 :irl-2012 :fcg-2012 :tasks-and-processes :experiment-framework :determination :german-space) :clean t :verbose nil)) (print-load-and-test-results *results*))
 
-
-(defun load-and-test-babel-packages ()
+(defun load-and-test-babel-packages (&key (clean t) (verbose nil))
   (let* ((packages '(:utils
                      :monitors
                      :web-interface
@@ -295,8 +372,10 @@ string will consist solely of decimal digits and ASCII letters."
                      :tasks-and-processes
                      :meta-layer-learning
                      :action-behavior-framework))
-         (results (load-and-test-packages packages :clean t :verbose nil)))
-    (print-load-and-test-results results)))
+         (results (load-and-test-packages packages :clean clean :verbose verbose)))
+    (print-load-and-test-results results)
+    (reduce (lambda (x y) (and x y))
+            (test-succeeded? results))))
 
 ;; (defparameter *results* (load-and-test-babel-packages))
 ;; (asdf:operate 'asdf:load-op :cl-store)
@@ -306,4 +385,8 @@ string will consist solely of decimal digits and ASCII letters."
 ;; (defparameter *results* (load-and-test-packages '(:utils) :lisp-commands '((lw  lispworks))  :verbose t))
 
 ;;(pprint (load-and-test-packages '(:utils) :lisp-commands '(("lw " . ("lispworks" ("-multiprocessing")))) :verbose t :clean t))
+
+(if (load-and-test-babel-packages :clean t :verbose nil)
+  (uiop:quit 0)
+  (uiop:quit 1))
 

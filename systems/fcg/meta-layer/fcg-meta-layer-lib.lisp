@@ -236,9 +236,6 @@
       (unless (connected-semantic-network parsed-meaning)
         (make-instance 'no-match)))))
 
-(defclass anti-unify-demo (repair)
-  ((trigger :initform 'new-node)))
-
 (defmethod repair ((repair anti-unify)
                    (problem no-match)
                    (node cip-node)

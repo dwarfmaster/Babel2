@@ -128,7 +128,8 @@
 ;; ajax function interface
 (defparameter *ajax-processor* (make-instance 'ajax-processor))
 
-;; handling different requests
+
+#|
 (setq *dispatch-table*
       (list 'dispatch-easy-handlers
 	    (create-folder-dispatcher-and-handler 
@@ -141,6 +142,22 @@
 	     "/favicon.ico" (babel-pathname 
                              :directory '("systems" "web-interface")
                              :name "favicon" :type "ico") "image/png")))
+|#
+
+;; handling different requests
+;; Append to the *dispatch-table* instead of overwriting it,
+;; so that other web services using *dispatch-table* can be found
+(setf *dispatch-table*
+      (append *dispatch-table* (list (create-folder-dispatcher-and-handler 
+                                      "/Babel2/" (babel-pathname))
+                                     (create-folder-dispatcher-and-handler 
+                                      "/Babeldocs/" (babel-pathname :directory '(:up "Babeldocs")))
+                                     (create-prefix-dispatcher "/data" #'handle-wi-data-request)
+                                     (create-ajax-dispatcher *ajax-processor*)
+                                     (create-static-file-dispatcher-and-handler 
+                                      "/favicon.ico" (babel-pathname 
+                                                      :directory '("systems" "web-interface")
+                                                      :name "favicon" :type "ico") "image/png"))))
 
 ;; #########################################################
 ;; define-css
