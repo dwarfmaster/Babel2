@@ -1,26 +1,30 @@
+;;; -*- emacs-lisp -*-
 (custom-set-variables
-   '(show-paren-mode t)
-   '(size-indication-mode t)
-   '(tool-bar-mode nil)
-   '(transient-mark-mode t)
-   '(column-number-mode t)
-   '(indent-tabs-mode nil)
-   '(make-backup-files nil))
+'(show-paren-mode t)
+'(size-indication-mode t)
+'(tool-bar-mode nil)
+'(transient-mark-mode t)
+'(column-number-mode t)
+'(indent-tabs-mode nil)
+'(make-backup-files nil))
 
 (set-face-foreground 'font-lock-string-face "navy")
 
+(setq mouse-wheel-scroll-amount '(1 ((shift) .1)))
 (setq mac-allow-anti-aliasing t)
-;;(require 'mac-key-mode)
-;;(mac-key-mode 1)
-;;(pc-selection-mode 1)
-;;(setq mac-option-modifier 'meta)
 
-(add-to-list 'load-path "/home/<USER>/slime") ;; change this
+;; Make sure gnuplot and dot are found. Add /usr/local/bin to the path
+(setenv "LANG" "en_US.UTF-8")
+(setenv "PATH" (concat (getenv "PATH") ":/usr/local/bin"))
+(setq exec-path (append exec-path '("/usr/local/bin")))
+
+;; path to slime (adapt)
+(add-to-list 'load-path "/home/<USER>/slime")
 
 (require 'slime)
 (slime-setup '(slime-repl slime-autodoc slime-fancy-inspector))
 
-(setq inferior-lisp-program "<CCL>") ;; change this
-;; use this on a 32Bit Mac (only if your mac is pretty old)
-;;(setq inferior-lisp-program "<CCL>") ;; if needed, change this
+;; path to lisp implementations (adapt)
+(setq inferior-lisp-program "<CCL>")
+ 	
 (command-execute 'slime)

@@ -5,8 +5,7 @@
   :depends-on (:test-framework
                :utils
                :cl-json
-               :cl-json-shell
-               :dexador)
+               :drakma)
   :serial t
   :components 
   ((:file "package")

@@ -13,6 +13,7 @@ import time
 import naoqi
 from naoqi import ALProxy
 
+
 class NaoVision(object):
 
     def __init__(self, ip, port):
@@ -27,13 +28,11 @@ class NaoVision(object):
         self.photoCaptureProxy.setResolution(2)
         self.photoCaptureProxy.setPictureFormat("jpg")
 
-
     def detect_sides(self, c):
         # initialize the shape name and approximate the contour
         peri = cv2.arcLength(c, True)
         approx = cv2.approxPolyDP(c, 0.04 * peri, True)
         return len(approx)
-
 
     def get_color(self, image, c):
         # Calculate the mean color of the given contour c
@@ -42,7 +41,6 @@ class NaoVision(object):
         mask = cv2.erode(mask, None, iterations=2)
         mean = cv2.mean(image, mask=mask)[:3]
         return mean
-
 
     def capture(self):
         # Create a unique name for picture -> current timestamp
@@ -54,7 +52,6 @@ class NaoVision(object):
         # Could also return _, but then need parsing in Lisp
         # to get filename and extension out
         return json.dumps({'path': img_path, 'name': img_name, 'ext': "jpg"})
-
 
     def analyze(self, filename=""):
         # Get the following data for each object:

@@ -77,7 +77,6 @@
    #:with-substitute-printed-representation-restart
    #:encode-json
    #:encode-json-to-string
-   #:encode-json-to-string-for-shell
    #:encode-json-alist
    #:encode-json-alist-to-string
    #:encode-json-plist

@@ -13,7 +13,8 @@
           get-penelope-tokens
           get-penelope-sentence-tokens
           get-word-similarity
-          get-word-embeddings))
+          get-word-embeddings
+          curl-json))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -29,7 +30,7 @@
   (let ((response (exec-and-return "curl" url "-H"
                                    #+lispworks (format nil "~s" "Content-Type: application/json")
                                    #-lispworks (format nil "~a" "Content-Type: application/json")
-                                   "-s"   "-d " "'" json "'"))) ;; remove single quotes for non lispworks
+                                   "-s"   "-d "  json ))) ;; remove single quotes for non lispworks
     (when response (cl-json:decode-json-from-string (first response)))))
 
 #-lispworks
@@ -52,7 +53,7 @@ and POS tags for a sentence."
       (setf sentence (format nil "~{~a~^ ~}" sentence))
       (error "The function <run-penelope-noun-chunker> expects a string as input")))
   (let ((server-result
-          (curl-json "https://www.fcg-net.org/penelope/nlp/nchunk" (encode-json-to-string `((:text . ,sentence) (:model . ,model))))))
+          (curl-json "https://www.fcg-net.org/penelope/nlp/nchunk" (encode-json-to-string-for-shell `((:text . ,sentence) (:model . ,model))))))
     (rest (first server-result))))
 
 ;;(run-penelope-noun-chunker "April is the fourth month of the year")
@@ -77,7 +78,7 @@ of strings, each list corresponding to a noun chunk."
   (unless (stringp sentence)
     (error "The function <run-penelope-pos-tagger> expects a string as input"))
   (let ((server-result
-         (curl-json "https://www.fcg-net.org/penelope/nlp/pos" (encode-json-to-string `((:text . ,sentence) (:model . ,model))))))
+         (curl-json "https://www.fcg-net.org/penelope/nlp/pos" (encode-json-to-string-for-shell `((:text . ,sentence) (:model . ,model))))))
     (rest (first server-result))))
 
 (defun get-penelope-pos-tags (transient-structure/sentence)
@@ -105,7 +106,7 @@ of strings, each list corresponding to a word with its most likely POS tag."
   (unless (stringp sentence)
     (error "The function <run-penelope-named-entity-recognition> expects a string as input"))
   (let ((server-result
-         (curl-json "https://www.fcg-net.org/penelope/nlp/ent" (encode-json-to-string `((:text . ,sentence) (:model . ,model))))))
+         (curl-json "https://www.fcg-net.org/penelope/nlp/ent" (encode-json-to-string-for-shell `((:text . ,sentence) (:model . ,model))))))
     (rest (first server-result))))
 
 (defun get-penelope-named-entities (transient-structure/sentence)
@@ -133,7 +134,7 @@ of strings, each list corresponding to a named entity."
   (unless (stringp sentence)
     (error "The function <run-penelope-dependency-parser> expects a string as input"))
   (let ((server-result
-         (curl-json "https://www.fcg-net.org/penelope/nlp/dep" (encode-json-to-string `((:text . ,sentence) (:model . ,model))))))
+         (curl-json "https://www.fcg-net.org/penelope/nlp/dep" (encode-json-to-string-for-shell `((:text . ,sentence) (:model . ,model))))))
     (rest (first server-result))))
 
 ;;(run-penelope-dependency-parser "April is the fourth month of the year")
@@ -149,7 +150,7 @@ of strings, each list corresponding to a named entity."
   (unless (stringp sentence)
     (error "The function <run-penelope-tokenizer> expects a string as input"))
   (let* ((server-result
-          (curl-json "https://www.fcg-net.org/penelope/nlp/tok" (encode-json-to-string `((:text . ,sentence) (:model . ,model))))))
+          (curl-json "https://www.fcg-net.org/penelope/nlp/tok" (encode-json-to-string-for-shell `((:text . ,sentence) (:model . ,model))))))
     (rest (first server-result))))
 
 ;;(run-penelope-tokenizer "Paul kicked the ball. Mary caught it.")
@@ -165,7 +166,7 @@ of strings, each list corresponding to a named entity."
   (unless (stringp sentences)
     (error "The function <run-penelope-sentence-tokenizer> expects a string as input"))
   (let ((server-result
-         (curl-json "https://www.fcg-net.org/penelope/nlp/stok" (encode-json-to-string `((:text . ,sentences) (:model . ,model))))))
+         (curl-json "https://www.fcg-net.org/penelope/nlp/stok" (encode-json-to-string-for-shell `((:text . ,sentences) (:model . ,model))))))
     (rest (first server-result))))
 
 (defun get-penelope-sentence-tokens (sentences)
@@ -183,7 +184,7 @@ of strings, each list corresponding to a named entity."
   (unless (stringp sentence)
     (error "The function <run-penelope-sentence-word-embeddings> expects a string as input"))
   (let ((server-result
-         (curl-json "https://www.fcg-net.org/penelope/nlp/glove" (encode-json-to-string `((:text . ,sentence) (:model . ,model))))))
+         (curl-json "https://www.fcg-net.org/penelope/nlp/glove" (encode-json-to-string-for-shell `((:text . ,sentence) (:model . ,model))))))
     (rest (first server-result))))
 
 ;(run-penelope-sentence-word-embeddings "hello")

@@ -17,7 +17,6 @@ function home_settings {
 
 	# download and make usual replacements
 	(curl -s "https://github.com/EvolutionaryLinguisticsAssociation/Babel2/raw/master/scripts/osx/$NEWFILE" |
-	# (curl -s "http://emergent-languages.org/Babel2/downloads/osx/$NEWFILE" |
 	 sed -e "s|<USER>|`whoami`|g" |
 	 sed -e "s|<CCL>|`which ccl`|g" > "$NEWFILE")
 	ls "$OLDFILE"
@@ -168,7 +167,75 @@ echo "== 5: Graphviz =="
 brew_install "dot" "graphviz"
 echo
 
-echo "== 4: Babel2 framework =="
+echo "== 6: Editors =="
+echo "There are several editors you can use for Babel development."
+echo "We recommend the installation of Emacs. This is the default."
+echo
+echo "You can also use the professional editor Lispworks for development."
+echo "However, the free version of Lispworks won't work with Babel due to memory limits."
+echo "We can't install Lispworks for you, but we can set up the config for Babel."
+echo
+echo "Note that, when choosing Sublime Text, this will not be installed through this script."
+echo "You can go to Sublime Text's website and download the latest version there."
+echo "Also note that you will need to install additional Sublime Text packages to enjoy the full Lisp experience"
+echo "First, install Package Control. Use this to install the following packages:"
+echo "SublimeREPL, rainbowth, Load File to REPL, BracketHighlighter and lispindent"
+echo "PLEASE BE NOTED that development in Sublime Text is not fully supported by the Babel2 team"
+echo
+read -n1 -rsp "Press S to skip, L for Lispworks, Ctrl+C to abort, or any other key for Emacs: " KEY
+echo
+if [ "$KEY" = 'S' -o "$KEY" = 's' ]; then
+	echo "Skipping editor."
+	echo
+elif [ "$KEY" = 'L' -o "$KEY" = 'l' ]; then
+	echo
+	echo "== 6: Lispworks settings =="
+	home_settings ".lispworks" "lispworks-babel" "Lispworks"
+	echo
+#elif [ "$KEY" = 'T' -o "$KEY" = 't']; then
+#	echo 
+#	echo "== 8: Sublime Text editor =="
+#	brew_cask_install "sublime-text" "sublime-text"
+#	echo
+else
+	echo
+	echo "== 6: Emacs editor =="
+	brew tap railwaycat/emacsmacport
+	if [ -d "$Emacs.app" ]; then
+		echo "Emacs detected, skipping"
+	else
+		brew install emacs-mac
+		ln -s /usr/local/opt/emacs-mac/Emacs.app /Applications
+	echo
+
+
+	echo "== 6a: Slime plugin =="
+	# see if there is a path to load slime from somewhere
+	(cat ~/.emacs | sed -Ene "s/\(add-to-list \'load-path \"(.*)\"\).*$/\1/p" | grep slime ||
+	# check also default loading folder ~/.emacs.d/
+	find ~/.emacs.d -type f -name '*slime*')
+	if [ $? -eq 0 ]; then
+		echo "Slime detected, skipping."
+	else
+		echo "Slime has not been found."
+		echo "Installing..."
+		(cd ~ && git clone https://github.com/slime/slime.git)
+		if [ $? -eq 0 ]; then
+			echo "Installed."
+		else
+			echo "Something wrong has happened, aborting. Contact the Babel team for help."
+			exit 1
+		fi
+	fi
+	echo
+
+
+	echo "== 6b: Emacs/Slime settings =="
+	home_settings ".emacs" "emacs-babel" "Emacs"
+	echo
+fi
+
+echo "== 7: Babel2 framework =="
 ls ~/Babel2
 if [ $? -eq 0 ]; then
 	echo "Babel2 detected, skipping."
@@ -193,12 +260,24 @@ fi
 echo
 
 
-echo "== 7a: Babel2 config for CCL =="
+echo "== 8: Babel2 config for CCL =="
 home_settings ".ccl-init.lisp" "ccl-init-babel.lisp" "CCL init"
 echo
 
+echo "== 9: Quicklisp =="
+ls ~/quicklisp
+if [ $? -eq 0 ]; then
+	echo "Quicklisp detected, skipping."
+else
+	echo "Quicklisp has not been found"
+	echo "Installing..."
+	curl -O "https://beta.quicklisp.org/quicklisp.lisp"
+	ccl -l quicklisp.lisp -e "(quicklisp-quickstart:install)(ql:quickload :cl-ppcre)(ql:quickload :cl-who)(ccl:quit)"
+	rm quicklisp.lisp
+	echo "Installed."
+fi
 
-echo "== 7b: Testing babel2 =="
+echo "== 10: Testing babel2 =="
 # We omit the browser test because it entails keeping ccl running and it complicates matters
 # it usually never fails anyway (compared to possible graphviz/gnuplot issues)
 echo "The test consists in opening a PDF file with a diagram and displaying a window with a sinus function."
@@ -218,75 +297,6 @@ else
 	echo
 fi
 echo
-
-
-echo "== 8: Editors =="
-echo "There are several editors you can use for Babel development."
-echo "We recommend the installation of Emacs. This is the default."
-echo
-echo "You can also use the professional editor Lispworks for development."
-echo "However, the free version of Lispworks won't work with Babel due to memory limits."
-echo "We can't install Lispworks for you, but we can set up the config for Babel."
-echo
-echo "Note that, when choosing Sublime Text, this will not be installed through this script."
-echo "You can go to Sublime Text's website and download the latest version there."
-echo "Also note that you will need to install additional Sublime Text packages to enjoy the full Lisp experience"
-echo "First, install Package Control. Use this to install the following packages:"
-echo "SublimeREPL, rainbowth, Load File to REPL, BracketHighlighter and lispindent"
-echo "PLEASE BE NOTED that development in Sublime Text is not fully supported by the Babel2 team"
-echo
-read -n1 -rsp "Press S to skip, L for Lispworks, Ctrl+C to abort, or any other key for Emacs: " KEY
-echo
-if [ "$KEY" = 'S' -o "$KEY" = 's' ]; then
-	echo "Skipping editor."
-	echo
-elif [ "$KEY" = 'L' -o "$KEY" = 'l' ]; then
-	echo
-	echo "== 8: Lispworks settings =="
-	home_settings ".lispworks" "lispworks-babel" "Lispworks"
-	echo
-#elif [ "$KEY" = 'T' -o "$KEY" = 't']; then
-#	echo 
-#	echo "== 8: Sublime Text editor =="
-#	brew_cask_install "sublime-text" "sublime-text"
-#	echo
-else
-	echo
-	echo "== 8: Emacs editor =="
-	brew tap railwaycat/emacsmacport
-	if [ -d "$Emacs.app" ]; then
-		echo "Emacs detected, skipping"
-	else
-		brew install emacs-mac
-		ln -s /usr/local/opt/emacs-mac/Emacs.app /Applications
-	echo
-
-
-	echo "== 9: Slime plugin =="
-	# see if there is a path to load slime from somewhere
-	(cat ~/.emacs | sed -Ene "s/\(add-to-list \'load-path \"(.*)\"\).*$/\1/p" | grep slime ||
-	# check also default loading folder ~/.emacs.d/
-	find ~/.emacs.d -type f -name '*slime*')
-	if [ $? -eq 0 ]; then
-		echo "Slime detected, skipping."
-	else
-		echo "Slime has not been found."
-		echo "Installing..."
-		(cd ~ && git clone https://github.com/slime/slime.git)
-		if [ $? -eq 0 ]; then
-			echo "Installed."
-		else
-			echo "Something wrong has happened, aborting. Contact the Babel team for help."
-			exit 1
-		fi
-	fi
-	echo
-
-
-	echo "== 10: Emacs/Slime settings =="
-	home_settings ".emacs" "emacs-babel" "Emacs"
-	echo
-fi
 
 
 echo

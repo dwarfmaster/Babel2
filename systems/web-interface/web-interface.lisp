@@ -86,10 +86,12 @@
 
 ;; The address is http://localhost:8000/ or, if you add something like
 ;; (defparameter *web-server-host-address* "my-machine")
-;; to your init.lisp, http://my-machine:8000/
+;; to your init-babel-user.lisp, http://my-machine:8000/
 (defvar *address* (if (boundp 'cl-user::*web-server-host-address*)
-		      (eval 'cl-user::*web-server-host-address*)
-		      "localhost"))
+                    (eval 'cl-user::*web-server-host-address*)
+                    #+:windows "127.0.0.1" ;; on windows localhost doesn't seem to resolve to 127.0.0.1
+                    #-:windows "localhost" 
+                    ))
 
 ;; address and port
 (defvar *port* (if (boundp 'cl-user::*web-server-port*)
@@ -103,7 +105,7 @@
               *address* *port*)
       (progn
 	(setf *my-server* 
-              (start (make-instance 'easy-acceptor
+              (start (make-instance 'easy-acceptor 
                                     :port port :address address
                                     #+(and ccl :windows) :read-timeout #+(and ccl :windows) nil ;; this only applies to windows
                                     #+(and ccl :windows) :write-timeout #+(and ccl :windows) nil
@@ -126,7 +128,8 @@
 ;; ajax function interface
 (defparameter *ajax-processor* (make-instance 'ajax-processor))
 
-;; handling different requests
+
+#|
 (setq *dispatch-table*
       (list 'dispatch-easy-handlers
 	    (create-folder-dispatcher-and-handler 
@@ -139,6 +142,22 @@
 	     "/favicon.ico" (babel-pathname 
                              :directory '("systems" "web-interface")
                              :name "favicon" :type "ico") "image/png")))
+|#
+
+;; handling different requests
+;; Append to the *dispatch-table* instead of overwriting it,
+;; so that other web services using *dispatch-table* can be found
+(setf *dispatch-table*
+      (append *dispatch-table* (list (create-folder-dispatcher-and-handler 
+                                      "/Babel2/" (babel-pathname))
+                                     (create-folder-dispatcher-and-handler 
+                                      "/Babeldocs/" (babel-pathname :directory '(:up "Babeldocs")))
+                                     (create-prefix-dispatcher "/data" #'handle-wi-data-request)
+                                     (create-ajax-dispatcher *ajax-processor*)
+                                     (create-static-file-dispatcher-and-handler 
+                                      "/favicon.ico" (babel-pathname 
+                                                      :directory '("systems" "web-interface")
+                                                      :name "favicon" :type "ico") "image/png"))))
 
 ;; #########################################################
 ;; define-css

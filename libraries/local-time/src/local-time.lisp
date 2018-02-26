@@ -22,7 +22,7 @@
   (loaded nil :type boolean))
 
 (deftype timezone-offset ()
-  '(integer -43199 50400))
+  '(integer -43200 50400))
 
 (defun %valid-time-of-day? (timestamp)
   (zerop (day-of timestamp)))
@@ -65,13 +65,13 @@
 (declaim (inline now format-timestring %get-current-time
                  format-rfc3339-timestring to-rfc3339-timestring
                  format-rfc1123-timestring to-rfc1123-timestring)
-         (ftype (function * simple-base-string) format-rfc3339-timestring)
-         (ftype (function * simple-base-string) format-timestring)
-         (ftype (function * fixnum) local-timezone)
-         (ftype (function * (values
-                             timezone-offset
-                             boolean
-                             string)) timestamp-subzone)
+         (ftype (function (&rest t) string) format-rfc3339-timestring)
+         (ftype (function (&rest t) string) format-timestring)
+         (ftype (function (&rest t) fixnum) local-timezone)
+         (ftype (function (&rest t) (values
+                                     timezone-offset
+                                     boolean
+                                     string)) timestamp-subzone)
          (ftype (function (timestamp &key (:timezone timezone) (:offset (or null integer)))
                           (values (integer 0 999999999)
                                   (integer 0 59)
@@ -121,6 +121,8 @@
   #(:sunday :monday :tuesday :wednesday :thursday :friday :saturday))
 (defparameter +short-day-names+
   #("Sun" "Mon" "Tue" "Wed" "Thu" "Fri" "Sat"))
+(defparameter +minimal-day-names+
+  #("Su" "Mo" "Tu" "We" "Th" "Fr" "Sa"))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defconstant +months-per-year+ 12)
@@ -133,27 +135,32 @@
   (defconstant +seconds-per-minute+ 60)
   (defconstant +usecs-per-day+ 86400000000))
 
+(defparameter +iso-8601-date-format+
+  '((:year 4) #\- (:month 2) #\- (:day 2)))
+
+(defparameter +iso-8601-time-format+
+  '((:hour 2) #\: (:min 2) #\: (:sec 2) #\. (:usec 6)))
+
 (defparameter +iso-8601-format+
   ;; 2008-11-18T02:32:00.586931+01:00
-  '((:year 4) #\- (:month 2) #\- (:day 2) #\T
-    (:hour 2) #\: (:min 2) #\: (:sec 2) #\.
-    (:usec 6) :gmt-offset-or-z))
-(defparameter +rfc3339-format+
-  ;; same as +ISO-8601-FORMAT+
-  '((:year 4) #\- (:month 2) #\- (:day 2) #\T
-    (:hour 2) #\: (:min 2) #\: (:sec 2) #\.
-    (:usec 6) :gmt-offset-or-z))
+  (append +iso-8601-date-format+ (list #\T) +iso-8601-time-format+ (list :gmt-offset-or-z)))
+
+(defparameter +rfc3339-format+ +iso-8601-format+)
+
 (defparameter +rfc3339-format/date-only+
   '((:year 4) #\- (:month 2) #\- (:day 2)))
+
 (defparameter +asctime-format+
   '(:short-weekday #\space :short-month #\space (:day 2 #\space) #\space
     (:hour 2) #\: (:min 2) #\: (:sec 2) #\space
     (:year 4)))
+
 (defparameter +rfc-1123-format+
   ;; Sun, 06 Nov 1994 08:49:37 GMT
   '(:short-weekday ", " (:day 2) #\space :short-month #\space (:year 4) #\space
-    (:hour 2) #\: (:min 2) #\: (:sec 2) #\space :timezone)
-  "Please note that you should use the +GMT-ZONE+ timezone to format a proper RFC 1123 timestring. See the RFC for the details about the possible values of the timezone field.")
+    (:hour 2) #\: (:min 2) #\: (:sec 2) #\space :gmt-offset-hhmm)
+  "See the RFC 1123 for the details about the possible values of the timezone field.")
+
 (defparameter +iso-week-date-format+
   ;; 2009-W53-5
   '((:iso-week-year 4) #\- #\W (:iso-week-number 2) #\- (:iso-week-day 1)))
@@ -216,7 +223,7 @@
   "Returns a string created from the vector of unsigned bytes VECTOR starting at OFFSET which is terminated by a 0."
   (declare (type (vector (unsigned-byte 8)) vector))
   (let* ((null-pos (or (position 0 vector :start offset) (length vector)))
-         (result (make-string (- null-pos offset) :element-type 'base-char)))
+         (result (make-string (- null-pos offset))))
     (loop for input-index :from offset :upto (1- null-pos)
           for output-index :upfrom 0
           do (setf (aref result output-index) (code-char (aref vector input-index))))
@@ -240,11 +247,11 @@
 
 (defun %tz-read-header (inf)
   `(:utc-count ,(%read-binary-integer inf 4)
-         :wall-count ,(%read-binary-integer inf 4)
-         :leap-count ,(%read-binary-integer inf 4)
-         :transition-count ,(%read-binary-integer inf 4)
-         :type-count ,(%read-binary-integer inf 4)
-         :abbrev-length ,(%read-binary-integer inf 4)))
+    :wall-count ,(%read-binary-integer inf 4)
+    :leap-count ,(%read-binary-integer inf 4)
+    :transition-count ,(%read-binary-integer inf 4)
+    :type-count ,(%read-binary-integer inf 4)
+    :abbrev-length ,(%read-binary-integer inf 4)))
 
 (defun %tz-read-transitions (inf count)
   (make-array count
@@ -264,10 +271,18 @@
                    (%read-binary-integer inf 1)
                    (%read-binary-integer inf 1))))
 
+(defun leap-seconds-sec (leap-seconds)
+  (car leap-seconds))
+(defun leap-seconds-adjustment (leap-seconds)
+  (cdr leap-seconds))
+
 (defun %tz-read-leap-seconds (inf count)
-  (loop for idx from 1 upto count
-     collect (list (%read-binary-integer inf 4)
-                   (%read-binary-integer inf 4))))
+  (when (plusp count)
+    (loop for idx from 1 upto count
+          collect (%read-binary-integer inf 4) into sec
+          collect (%read-binary-integer inf 4) into adjustment
+          finally (return (cons (make-array count :initial-contents sec)
+                                (make-array count :initial-contents adjustment))))))
 
 (defun %tz-read-abbrevs (inf length)
   (let ((a (make-array length :element-type '(unsigned-byte 8))))
@@ -312,8 +327,8 @@
              (timezone-transitions (%tz-read-transitions inf (getf header :transition-count)))
              (subzone-indexes (%tz-read-indexes inf (getf header :transition-count)))
              (subzone-raw-info (%tz-read-subzone inf (getf header :type-count)))
-             (leap-second-info (%tz-read-leap-seconds inf (getf header :leap-count)))
              (abbreviation-buf (%tz-read-abbrevs inf (getf header :abbrev-length)))
+             (leap-second-info (%tz-read-leap-seconds inf (getf header :leap-count)))
              (std-indicators (%tz-read-indicators inf (getf header :wall-count)))
              (gmt-indicators (%tz-read-indicators inf (getf header :utc-count)))
              (subzone-info (%tz-make-subzones subzone-raw-info
@@ -366,9 +381,10 @@
 
 (eval-when (:load-toplevel :execute)
   (let ((default-timezone-file #p"/etc/localtime"))
-    (if (probe-file default-timezone-file)
+    (handler-case
         (define-timezone *default-timezone* default-timezone-file :load t)
-        (setf *default-timezone* +utc-zone+))))
+      (t ()
+        (setf *default-timezone* +utc-zone+)))))
 
 (defparameter *location-name->timezone* (make-hash-table :test 'equal)
   "A hashtable with entries like \"Europe/Budapest\" -> timezone-instance")
@@ -395,30 +411,29 @@ In other words:
 
 (defun reread-timezone-repository (&key (timezone-repository *default-timezone-repository-path*))
   (check-type timezone-repository (or pathname string))
-  (multiple-value-bind (valid? error)
-      (ignore-errors
-        (truename timezone-repository)
-        t)
-    (unless valid?
-      (error "REREAD-TIMEZONE-REPOSITORY was called with invalid PROJECT-DIRECTORY (~A). The error is ~A."
-             timezone-repository error)))
-  (let* ((root-directory timezone-repository)
-         (cutoff-position (length (princ-to-string root-directory))))
-    (flet ((visitor (file)
-             (let* ((full-name (subseq (princ-to-string file) cutoff-position))
-                    (name (pathname-name file))
-                    (timezone (%realize-timezone (make-timezone :path file :name name))))
-               (setf (gethash full-name *location-name->timezone*) timezone)
-               (map nil (lambda (subzone)
-                          (push timezone (gethash (subzone-abbrev subzone)
-                                                  *abbreviated-subzone-name->timezone-list*)))
-                    (timezone-subzones timezone)))))
-      (setf *location-name->timezone* (make-hash-table :test 'equal))
-      (setf *abbreviated-subzone-name->timezone-list* (make-hash-table :test 'equal))
-      (cl-fad:walk-directory root-directory #'visitor :directories nil
-                             :test (lambda (file)
-                                     (not (find "Etc" (pathname-directory file) :test #'string=))))
-      (cl-fad:walk-directory (merge-pathnames "Etc/" root-directory) #'visitor :directories nil))))
+  (let ((root-directory (fad:directory-exists-p timezone-repository)))
+    (unless root-directory
+      (error "REREAD-TIMEZONE-REPOSITORY was called with invalid PROJECT-DIRECTORY (~A)."
+             timezone-repository))
+    (let ((cutoff-position (length (princ-to-string root-directory))))
+      (flet ((visitor (file)
+               (handler-case
+                   (let* ((full-name (subseq (princ-to-string file) cutoff-position))
+                          (name (pathname-name file))
+                          (timezone (%realize-timezone (make-timezone :path file :name name))))
+                     (setf (gethash full-name *location-name->timezone*) timezone)
+                     (map nil (lambda (subzone)
+                                (push timezone (gethash (subzone-abbrev subzone)
+                                                        *abbreviated-subzone-name->timezone-list*)))
+                          (timezone-subzones timezone)))
+                 (invalid-timezone-file () nil))))
+        (setf *location-name->timezone* (make-hash-table :test 'equal))
+        (setf *abbreviated-subzone-name->timezone-list* (make-hash-table :test 'equal))
+        (cl-fad:walk-directory root-directory #'visitor :directories nil
+                               :test (lambda (file)
+                                       (not (find "Etc" (pathname-directory file) :test #'string=)))
+                               :follow-symlinks nil)
+        (cl-fad:walk-directory (merge-pathnames "Etc/" root-directory) #'visitor :directories nil)))))
 
 (defmacro make-timestamp (&rest args)
   `(make-instance 'timestamp ,@args))
@@ -429,19 +444,30 @@ In other words:
                  :sec (sec-of timestamp)
                  :day (day-of timestamp)))
 
-(defun transition-position (needle haystack &optional (start 0) (end (1- (length haystack))))
-  (let ((middle (floor (+ end start) 2)))
-    (cond
-      ((>= start end)
-       (if (minusp end)
-           0
-           end))
-      ((= needle (elt haystack middle))
-       middle)
-      ((> needle (elt haystack middle))
-       (transition-position needle haystack (1+ middle) end))
-      (t
-       (transition-position needle haystack start (1- middle))))))
+(defun transition-position (needle haystack)
+  (declare (type integer needle)
+           (type (simple-array integer (*)) haystack))
+  (loop
+     with start = 0
+     with end = (1- (length haystack))
+     for middle = (floor (+ end start) 2)
+     while (and (< start end)
+                (/= needle (elt haystack middle)))
+     do (cond
+          ((> needle (elt haystack middle))
+           (setf start (1+ middle)))
+          (t
+           (setf end (1- middle))))
+     finally
+       (return (max 0 (cond
+                        ((minusp end)
+                         0)
+                        ((= needle (elt haystack middle))
+                         middle)
+                        ((>= needle (elt haystack end))
+                         end)
+                        (t
+                         (1- end)))))))
 
 (defun timestamp-subtimezone (timestamp timezone)
   "Return as multiple values the time zone as the number of seconds east of UTC, a boolean daylight-saving-p, and the customary abbreviation of the timezone."
@@ -464,10 +490,9 @@ In other words:
   "Returns two values, the values of new DAY and SEC slots of the timestamp adjusted to the given timezone."
   (declare (type integer sec day offset))
   (multiple-value-bind (offset-day offset-sec)
-      (truncate (abs offset) +seconds-per-day+)
-    (let* ((offset-sign (signum offset))
-           (new-sec (+ sec (* offset-sign offset-sec)))
-           (new-day (+ day (* offset-sign offset-day))))
+      (truncate offset +seconds-per-day+)
+    (let* ((new-sec (+ sec offset-sec))
+           (new-day (+ day offset-day)))
       (cond ((minusp new-sec)
              (incf new-sec +seconds-per-day+)
              (decf new-day))
@@ -501,7 +526,7 @@ In other words:
                         (if (> part-count 3) 1 day)
                         (if (> part-count 4) 1 month)
                         year
-                        :offset offset
+                        :offset (if timezone nil offset)
                         :timezone timezone
                         :into into))))
 
@@ -525,7 +550,7 @@ In other words:
                           (if (> part-count 3) (days-in-month month year) day)
                           month
                           year
-                          :offset offset
+                          :offset (if timezone nil offset)
                           :timezone timezone
                           :into into)))))
 
@@ -596,9 +621,9 @@ In other words:
 
   (defun %expand-adjust-timestamp-changes (timestamp changes visitor)
     (loop
-      :for change in changes
       :with params = ()
       :with functions = ()
+      :for change in changes
       :do
          (progn
            (assert (or
@@ -703,10 +728,10 @@ the previous day given by OFFSET."
   (labels ((direct-adjust (part offset nsec sec day)
              (cond ((eq part :day-of-week)
                     (with-decoded-timestamp (:day-of-week day-of-week
-                                             :nsec nsec :sec sec :minute minute :hour hour
-                                             :day day :month month :year year
-                                             :timezone timezone :offset utc-offset)
-                        time
+                                                          :nsec nsec :sec sec :minute minute :hour hour
+                                                          :day day :month month :year year
+                                                          :timezone timezone :offset utc-offset)
+                      time
                       (let ((position (position offset +day-names-as-keywords+ :test #'eq)))
                         (assert position (position) "~S is not a valid day name" offset)
                         (let ((offset (+ (- (if (zerop day-of-week)
@@ -714,14 +739,20 @@ the previous day given by OFFSET."
                                                 day-of-week))
                                          position)))
                           (incf day offset)
-                          (when (< day 1)
-                            (let (days-in-month)
-                              (decf month)
-                              (when (< month 1)
-                                (setf month 12)
-                                (decf year))
-                              (setf days-in-month (days-in-month month year)
-                                    day (+ days-in-month day)))) ;; day here is always <= 0
+                          (cond
+                            ((< day 1)
+                             (decf month)
+                             (when (< month 1)
+                               (setf month 12)
+                               (decf year))
+                             (setf day (+ (days-in-month month year) day)))
+                            ((let ((days-in-month (days-in-month month year)))
+                               (when (< days-in-month day)
+                                 (incf month)
+                                 (when (= month 13)
+                                   (setf month 1)
+                                   (incf year))
+                                 (decf day days-in-month)))))
                           (encode-timestamp-into-values nsec sec minute hour day month year
                                                         :timezone timezone :offset utc-offset)))))
                    ((zerop offset)
@@ -732,7 +763,7 @@ the previous day given by OFFSET."
                                               (timestamp-subtimezone time timezone)))
                           new-utc-offset)
                       (tagbody
-                         top
+                       top
                          (ecase part
                            (:nsec
                             (multiple-value-bind (sec-offset new-nsec)
@@ -749,10 +780,7 @@ the previous day given by OFFSET."
                                                           (:minute +seconds-per-minute+)
                                                           (:hour +seconds-per-hour+))))
                                        +seconds-per-day+)
-                              (setf part :day
-                                    offset days-offset
-                                    sec new-sec)
-                              (go top)))
+                              (return-from direct-adjust (values nsec new-sec (+ day days-offset)))))
                            (:day
                             (incf day offset)
                             (setf new-utc-offset (or utc-offset
@@ -772,8 +800,8 @@ the previous day given by OFFSET."
 
            (safe-adjust (part offset time)
              (with-decoded-timestamp (:nsec nsec :sec sec :minute minute :hour hour :day day
-                                      :month month :year year :timezone timezone :offset utc-offset)
-                 time
+                                            :month month :year year :timezone timezone :offset utc-offset)
+               time
                (multiple-value-bind (month-new year-new)
                    (%normalize-month-year-pair
                     (+ (ecase part
@@ -799,18 +827,20 @@ the previous day given by OFFSET."
 (defun timestamp-whole-year-difference (time-a time-b)
   "Returns the number of whole years elapsed between time-a and time-b (hint: anniversaries)."
   (declare (type timestamp time-b time-a))
-  (multiple-value-bind (nsec-a sec-a minute-a hour-a day-a month-a year-a)
+  (multiple-value-bind (nsec-b sec-b minute-b hour-b day-b month-b year-b day-of-week-b daylight-p-b offset-b)
       (decode-timestamp time-b)
-    (multiple-value-bind (nsec-b sec-b minute-b hour-b day-b month-b year-b day-of-week-b daylight-p-b zone-b)
+    (declare (ignore day-of-week-b daylight-p-b))
+    (multiple-value-bind (nsec-a sec-a minute-a hour-a day-a month-a year-a)
         (decode-timestamp time-a)
-      (declare (ignore nsec-b sec-b minute-b hour-b day-b month-b day-of-week-b daylight-p-b zone-b))
-      (let ((year-difference (- year-b year-a)))
-        (if (timestamp<= (encode-timestamp nsec-a sec-a minute-a hour-a
-                                           (if (= month-a 2)
-                                               (min 28 day-a)
-                                               day-a)
-                                           month-a
-                                           (+ year-difference year-a))
+      (declare (ignore nsec-a sec-a minute-a hour-a day-a month-a))
+      (let ((year-difference (- year-a year-b)))
+        (if (timestamp<= (encode-timestamp nsec-b sec-b minute-b hour-b
+                                           (if (= month-b 2)
+                                               (min 28 day-b)
+                                               day-b)
+                                           month-b
+                                           (+ year-difference year-b)
+                                           :offset offset-b)
                          time-a)
             year-difference
             (1- year-difference))))))
@@ -941,8 +971,61 @@ elements."
   (declare (type timestamp timestamp))
   (timestamp-values-to-unix (sec-of timestamp) (day-of timestamp)))
 
+#+(and allegro (not os-windows))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  ;; Allegro common lisp requires some toplevel hoops through which to
+  ;; jump in order to call unix's gettimeofday properly.
+  (ff:def-foreign-type timeval
+      (:struct (tv_sec :long)
+               (tv_usec :long)))
+
+  (ff:def-foreign-call
+      (allegro-ffi-gettimeofday "gettimeofday")
+      ((timeval (* timeval))
+       ;; and do this to allow a 0 for NULL
+       (timezone :foreign-address))
+    :returning (:int fixnum)))
+
+#+(and allegro os-windows)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  ;; Allegro common lisp requires some toplevel hoops through which to
+  ;; jump in order to call unix's gettimeofday properly.
+  (ff:def-foreign-type filetime
+      (:struct (|dwLowDateTime| :int)
+               (|dwHighDateTime| :int)))
+
+  (ff:def-foreign-call
+      (allegro-ffi-get-system-time-as-file-time "GetSystemTimeAsFileTime")
+      ((filetime (* filetime)))
+    :returning :void))
+
+(defun filetime-to-current-time (low high)
+  "Convert a Windows time into (values sec nano-sec)."
+  (let* ((unix-epoch-filetime 116444736000000000)
+         (filetime (logior low (ash high 32)))
+         (filetime (- filetime unix-epoch-filetime)))
+    (multiple-value-bind (secs 100ns-periods)
+        (floor filetime #.(round 1e7))
+      (values secs (* 100ns-periods 100)))))
+
 (defun %get-current-time ()
   "Cross-implementation abstraction to get the current time measured from the unix epoch (1/1/1970). Should return (values sec nano-sec)."
+  #+(and allegro (not os-windows))
+  (flet ((allegro-gettimeofday ()
+           (let ((tv (ff:allocate-fobject 'timeval :c)))
+             (allegro-ffi-gettimeofday tv 0)
+             (let ((sec (ff:fslot-value-typed 'timeval :c tv 'tv_sec))
+                   (usec (ff:fslot-value-typed 'timeval :c tv 'tv_usec)))
+               (ff:free-fobject tv)
+               (values sec usec)))))
+    (multiple-value-bind (sec usec) (allegro-gettimeofday)
+      (values sec (* 1000 usec))))
+  #+(and allegro os-windows)
+  (let* ((ft (ff:allocate-fobject 'filetime :c)))
+    (allegro-ffi-get-system-time-as-file-time ft)
+    (let* ((low (ff:fslot-value-typed 'filetime :c ft '|dwLowDateTime|))
+           (high (ff:fslot-value-typed 'filetime :c ft '|dwHighDateTime|)))
+      (filetime-to-current-time low high)))
   #+cmu
   (multiple-value-bind (success? sec usec) (unix:unix-gettimeofday)
     (assert success? () "unix:unix-gettimeofday reported failure?!")
@@ -961,19 +1044,70 @@ elements."
     (let ((err (ccl:external-call "gettimeofday" :address tv :address (ccl:%null-ptr) :int)))
       (assert (zerop err) nil "gettimeofday failed")
       (values (ccl:pref tv :timeval.tv_sec) (* 1000 (ccl:pref tv :timeval.tv_usec)))))
-  #-(or cmu sbcl (and ccl (not windows)))
+  #+(and ccl windows)
+  (ccl:rlet ((time :<lpfiletime>))
+    (ccl:external-call "GetSystemTimeAsFileTime" :<lpfiletime> time :void)
+    (let* ((low (ccl:%get-unsigned-long time (/ 0 8)))
+           (high (ccl:%get-unsigned-long time (/ 32 8))))
+      (filetime-to-current-time low high)))
+  #+abcl
+  (multiple-value-bind (sec millis)
+      (truncate (java:jstatic "currentTimeMillis" "java.lang.System") 1000)
+    (values sec (* millis 1000000)))
+  #-(or allegro cmu sbcl abcl ccl)
   (values (- (get-universal-time)
              ;; CL's get-universal-time uses an epoch of 1/1/1900, so adjust the result to the Unix epoch
              #.(encode-universal-time 0 0 0 1 1 1970 0))
           0))
 
+(defvar *clock* t
+  "Use the `*clock*' special variable if you need to define your own idea of the current time.
+
+The value of this variable should have the methods `local-time::clock-now', and
+`local-time::clock-today'. The currently supported values in local-time are:
+  t - use the standard clock
+  local-time:leap-second-adjusted - use a clock which adjusts for leap seconds using the information in *default-timezone*.")
+
 (defun now ()
   "Returns a timestamp representing the present moment."
-  (multiple-value-bind (sec nsec) (%get-current-time)
-    (unix-to-timestamp sec :nsec nsec)))
+  (clock-now *clock*))
 
 (defun today ()
   "Returns a timestamp representing the present day."
+  (clock-today *clock*))
+
+(defgeneric clock-now (clock)
+  (:documentation "Returns a timestamp for the current time given a clock."))
+
+(defgeneric clock-today (clock)
+  (:documentation "Returns a timestamp for the current date given a
+  clock.  The date is encoded by convention as a timestamp with the
+  time set to 00:00:00UTC."))
+
+(defun %leap-seconds-offset (leap-seconds sec)
+  "Find the latest leap second adjustment effective at SEC system time."
+  (elt (leap-seconds-adjustment leap-seconds)
+       (transition-position sec (leap-seconds-sec leap-seconds))))
+
+(defun %adjust-sec-for-leap-seconds (sec)
+  "Ajdust SEC from system time to Unix time (on systems those clock does not jump back over leap seconds)."
+  (let ((leap-seconds (timezone-leap-seconds (%realize-timezone *default-timezone*))))
+    (when leap-seconds
+      (decf sec (%leap-seconds-offset leap-seconds sec))))
+  sec)
+
+(defmethod clock-now ((clock (eql 'leap-second-adjusted)))
+  (multiple-value-bind (sec nsec) (%get-current-time)
+    (unix-to-timestamp (%adjust-sec-for-leap-seconds sec)
+                       :nsec nsec)))
+
+(defmethod clock-now (clock)
+  (declare (ignore clock))
+  (multiple-value-bind (sec nsec) (%get-current-time)
+    (unix-to-timestamp sec :nsec nsec)))
+
+(defmethod clock-today (clock)
+  (declare (ignore clock))
   ;; TODO should return a date value, anyhow we will decide to represent it eventually
   (let ((result (now)))
     (setf (sec-of result) 0)
@@ -985,12 +1119,22 @@ elements."
     `(progn
       (declaim (inline ,pair-comparator-name))
       (defun ,pair-comparator-name (time-a time-b)
+        (assert (typep time-a 'timestamp)
+                nil
+                'type-error
+                :datum time-a
+                :expected-type 'timestamp)
+        (assert (typep time-b 'timestamp)
+                nil
+                'type-error
+                :datum time-b
+                :expected-type 'timestamp)
         ,@body)
       (defun ,name (&rest times)
         (declare (dynamic-extent times))
-        (loop for (time-a time-b) :on times
-              while time-b
-              always (,pair-comparator-name time-a time-b)))
+        (loop for head on times
+              while (cdr head)
+              always (,pair-comparator-name (first head) (second head))))
       (define-compiler-macro ,name (&rest times)
         (let ((vars (loop
                       :for i :upfrom 0 :below (length times)
@@ -1120,10 +1264,13 @@ elements."
   (let* ((dn (timestamp-day-of-week timestamp))
          (day-of-week (if (zerop dn) 7 dn)) ; ISO weekdays are Monday=1 and Sunday=7
          (nearest-thursday (timestamp+ timestamp (- 4 day-of-week) :day))
-         (base-year (encode-timestamp 0 0 0 0 1 1 (timestamp-year nearest-thursday)))
-         (ordinal-day (- (day-of nearest-thursday) (day-of base-year))))
-    (values (timestamp-year base-year)
-            (nth-value 0 (floor (1+ (/ ordinal-day 7))))
+         (year (timestamp-year nearest-thursday))
+         (month (timestamp-month nearest-thursday))
+         (day (timestamp-day nearest-thursday))
+         (ordinal-day (- (day-of (encode-timestamp 0 0 0 0 day month year :timezone +utc-zone+))
+                         (day-of (encode-timestamp 0 0 0 0 1 1 year :timezone +utc-zone+)))))
+    (values year
+            (1+ (floor ordinal-day 7))
             day-of-week)))
 
 (defun %timestamp-decode-time (seconds)
@@ -1374,13 +1521,11 @@ elements."
                                   (end (cdr (second parts))))
                              (declare (type (integer 0 #.array-dimension-limit) start end))
                              (passert (<= (- end start) 9))
-                             (let ((new-end (position-if (lambda (el)
-                                                           (declare (type character el))
-                                                           (not (char= #\0 el)))
-                                                         (the (simple-array character (*)) time-string)
-                                                         :start start
-                                                         :end end
-                                                         :from-end t)))
+                             (let ((new-end (position #\0 time-string
+                                                      :test-not #'eql
+                                                      :start start
+                                                      :end end
+                                                      :from-end t)))
                                (when new-end
                                  (setf end (min (1+ new-end)))))
                              (setf nsec (* (the (integer 0 999999999) (parse-integer time-string :start start :end end))
@@ -1391,11 +1536,30 @@ elements."
                            (setf nsec 0)))))
                  (time-offset (start-end sign)
                    (with-parts-and-count ((car start-end) (cdr start-end) time-separator)
-                     (passert (or allow-missing-timezone-part (= count 2)))
-                     (parse-integer-into (first parts) offset-hour 0 23)
-                     (if (second parts)
-                         (parse-integer-into (second parts) offset-minute 0 59)
-                         (setf offset-minute 0))
+                     (passert (or (and allow-missing-timezone-part (zerop count))
+                                  (= count 1)
+                                  (= count 2)))
+
+                     (cond
+                       ((= count 2)
+                        ;; hh:mm offset
+                        (parse-integer-into (first parts) offset-hour 0 23)
+                        (parse-integer-into (second parts) offset-minute 0 59))
+                       ((= (- (cdar parts) (caar parts)) 4)
+                        ;; hhmm offset
+                        (parse-integer-into (cons (caar parts)
+                                                  (+ (caar parts) 2))
+                                            offset-hour 0 23)
+                        (parse-integer-into (cons (+ (caar parts) 2)
+                                                  (+ (caar parts) 4))
+                                            offset-minute 0 59))
+                       ((= (- (cdar parts) (caar parts)) 2)
+                        ;; hh offset
+                        (parse-integer-into (cons (caar parts)
+                                                  (+ (caar parts) 2))
+                                            offset-hour 0 23)
+                        (setf offset-minute 0)))
+
                      (setf offset-hour (* offset-hour sign)
                            offset-minute (* offset-minute sign))))
                  (parse-error (failure)
@@ -1476,19 +1640,19 @@ elements."
         (%timestamp-decode-iso-week timestamp)
       (let ((*print-pretty* nil)
             (*print-circle* nil))
-        (with-output-to-string (result nil :element-type 'base-char)
+        (with-output-to-string (result nil)
           (dolist (fmt format)
             (cond
-              ((or (eql fmt :gmt-offset)
-                   (eql fmt :gmt-offset-or-z))
+              ((member fmt '(:gmt-offset :gmt-offset-or-z :gmt-offset-hhmm))
                (multiple-value-bind (offset-hours offset-secs)
                    (floor offset +seconds-per-hour+)
                  (declare (fixnum offset-hours offset-secs))
                  (if (and (eql fmt :gmt-offset-or-z) (zerop offset))
                      (princ #\Z result)
-                     (format result "~c~2,'0d:~2,'0d"
+                     (format result "~c~2,'0d~:[:~;~]~2,'0d"
                              (if (minusp offset-hours) #\- #\+)
                              (abs offset-hours)
+                             (eql fmt :gmt-offset-hhmm)
                              (truncate (abs offset-secs)
                                        +seconds-per-minute+)))))
               ((eql fmt :short-year)
@@ -1501,10 +1665,10 @@ elements."
                (princ (aref +day-names+ weekday) result))
               ((eql fmt :short-weekday)
                (princ (aref +short-day-names+ weekday) result))
+              ((eql fmt :minimal-weekday)
+               (princ (aref +minimal-day-names+ weekday) result))
               ((eql fmt :timezone)
                (princ abbrev result))
-              ((eql fmt :hour12)
-               (princ (1+ (mod (1- hour) 12)) result))
               ((eql fmt :ampm)
                (princ (if (< hour 12) "am" "pm") result))
               ((eql fmt :ordinal-day)
@@ -1519,6 +1683,7 @@ elements."
                             (:sec sec)
                             (:min minute)
                             (:hour hour)
+                            (:hour12 (1+ (mod (1- hour) 12)))
                             (:day day)
                             (:weekday weekday)
                             (:month month)
@@ -1562,12 +1727,14 @@ FORMAT is a list containing one or more of strings, characters, and keywords. St
   :ISO-WEEK-DAY      *ISO compatible weekday number (monday=1, sunday=7)
   :LONG-WEEKDAY      long form of weekday (e.g. Sunday, Monday)
   :SHORT-WEEKDAY     short form of weekday (e.g. Sun, Mon)
+  :MINIMAL-WEEKDAY   minimal form of weekday (e.g. Su, Mo)
   :LONG-MONTH        long form of month (e.g. January, February)
   :SHORT-MONTH       short form of month (e.g. Jan, Feb)
-  :HOUR12            hour on a 12-hour clock
+  :HOUR12            *hour on a 12-hour clock
   :AMPM              am/pm marker in lowercase
   :GMT-OFFSET        the gmt-offset of the time, in +00:00 form
   :GMT-OFFSET-OR-Z   like :GMT-OFFSET, but is Z when UTC
+  :GMT-OFFSET-HHMM   like :GMT-OFFSET, but in +0000 form
   :TIMEZONE          timezone abbrevation for the time
 
 Elements marked by * can be placed in a list in the form: \(:keyword padding &optional \(padchar #\0))
@@ -1581,10 +1748,11 @@ You can see examples in +ISO-8601-FORMAT+, +ASCTIME-FORMAT+, and +RFC-1123-FORMA
       (write-string result (if (eq t destination) *standard-output* destination)))
     result))
 
-(defun format-rfc1123-timestring (destination timestamp)
+(defun format-rfc1123-timestring (destination timestamp &key
+                                  (timezone *default-timezone*))
   (format-timestring destination timestamp
                      :format +rfc-1123-format+
-                     :timezone +gmt-zone+))
+                     :timezone timezone))
 
 (defun to-rfc1123-timestring (timestamp)
   (format-rfc1123-timestring nil timestamp))
@@ -1663,7 +1831,7 @@ You can see examples in +ISO-8601-FORMAT+, +ASCTIME-FORMAT+, and +RFC-1123-FORMA
                  (nsec-of object))))
     (t
      (when *print-escape*
-       (princ "@" stream))
+       (write-char #\@ stream))
      (format-rfc3339-timestring stream object))))
 
 (defmethod print-object ((object timezone) stream)

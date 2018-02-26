@@ -2,6 +2,12 @@
 
 (defsuite* (simple :in test))
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (local-time::define-timezone eastern-tz
+      (merge-pathnames #p"US/Eastern" local-time::*default-timezone-repository-path*))
+  (local-time::define-timezone amsterdam-tz
+      (merge-pathnames #p"Europe/Amsterdam" local-time::*default-timezone-repository-path*)))
+
 (deftest test/simple/make-timestamp ()
   (let ((timestamp (make-timestamp :nsec 1 :sec 2 :day 3)))
     (is (= (nsec-of timestamp) 1))
@@ -94,7 +100,11 @@
 
   (let ((a (parse-timestring "2006-01-01T00:00:00"))
         (b (parse-timestring "2001-01-02T00:00:00")))
-    (is (= 4 (timestamp-whole-year-difference a b)))))
+    (is (= 4 (timestamp-whole-year-difference a b))))
+  
+  (let* ((local-time::*default-timezone* amsterdam-tz)
+         (a (parse-timestring "1978-10-01")))
+    (is (= 0 (timestamp-whole-year-difference a a)))))
 
 (deftest test/adjust-timestamp/bug1 ()
   (let* ((timestamp (parse-timestring "2006-01-01T00:00:00Z"))
@@ -113,6 +123,14 @@
   (let* ((timestamp (parse-timestring "2009-03-04T01:00:00.000000+00:00"))
          (modified-timestamp (adjust-timestamp timestamp (timezone +utc-zone+) (offset :day-of-week :monday))))
     (is (timestamp= (parse-timestring "2009-03-02T01:00:00.000000+00:00") modified-timestamp))))
+
+(deftest test/adjust-timestamp/bug4 ()
+  (let* ((timestamp (parse-timestring "2013-04-30T00:00:00.000000+00:00"))
+         (modified-timestamp (adjust-timestamp timestamp (timezone +utc-zone+) (offset :day-of-week :wednesday))))
+    (is (timestamp= (parse-timestring "2013-05-01T00:00:00.000000+00:00") modified-timestamp)))
+  (let* ((timestamp (parse-timestring "2013-12-31T00:00:00.000000+00:00"))
+         (modified-timestamp (adjust-timestamp timestamp (timezone +utc-zone+) (offset :day-of-week :wednesday))))
+    (is (timestamp= (parse-timestring "2014-01-01T00:00:00.000000+00:00") modified-timestamp))))
 
 #+nil
 (deftest test/adjust-days ()
@@ -228,3 +246,28 @@
                (encode-timestamp 0 49 26 13 9 12 2010 :offset -18000)
                :min)
               (encode-timestamp 0 0 0 13 9 12 2010 :offset -18000)))
+
+(deftest test/decode-iso-week ()
+  (dolist (*default-timezone* (list eastern-tz +utc-zone+ amsterdam-tz))
+    (dolist (testcase '((2005 01 01 2004 53 6)
+                        (2005 01 02 2004 53 7)
+                        (2005 12 31 2005 52 6)
+                        (2007 01 01 2007 1 1)
+                        (2007 12 30 2007 52 7)
+                        (2007 12 31 2008 1 1)
+                        (2008 01 01 2008 1 2)
+                        (2008 12 28 2008 52 7)
+                        (2008 12 29 2009 1 1)
+                        (2008 12 30 2009 1 2)
+                        (2008 12 31 2009 1 3)
+                        (2009 01 01 2009 1 4)
+                        (2009 12 31 2009 53 4)
+                        (2010 01 01 2009 53 5)
+                        (2010 01 02 2009 53 6)
+                        (2010 01 03 2009 53 7)
+                        (2016 01 04 2016 1 1)))
+      (destructuring-bind (year month day iso-year iso-week iso-dow)
+          testcase
+        (let ((ts (encode-timestamp 0 0 0 12 day month year)))
+          (is (equal (list iso-year iso-week iso-dow)
+                     (multiple-value-list (local-time::%timestamp-decode-iso-week ts)))))))))

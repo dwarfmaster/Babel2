@@ -11,6 +11,8 @@
   ;; Check for sshpass
   (unless (sshpass-installed-p)
     (error "sshpass is not installed or not in the path. You can install it e.g. with homebrew."))
+  ;; Ensure the local-file directory exists
+  (ensure-directories-exist local-file)
   ;; Do the scp request, avoiding the password prompt with sshpass
   (let ((arg (format nil "sshpass -p ~a /usr/bin/scp ~a@~a:~a ~a"
                      password username host remote-file local-file)))

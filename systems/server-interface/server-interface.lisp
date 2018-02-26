@@ -14,7 +14,7 @@
 ;; course that the http request sends in its data 'handler-method=my-handler'.                   ;;
 ;;                                                                                               ;;
 ;; (start-server)                                                                                ;;
-;; (exec-and-print "curl" "-s" "http://localhost:8920" "-d" "handler-method=mhm")                ;;
+;; curl 'http://localhost:8920' -d '{"handler-method": "my-handler"}'                            ;;
 ;; (stop-server)                                                                                 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -32,7 +32,7 @@
 
 (defparameter *host* (if (boundp 'cl-user::*web-server-host-address*)
                        (eval 'cl-user::*web-server-host-address*)
-                       "localhost"))
+                       "127.0.0.1"))
 
 (defparameter *port* (if (boundp 'cl-user::*ext-web-server-port*)
                        (eval 'cl-user::*ext-web-server-port*)

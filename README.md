@@ -1,16 +1,22 @@
 # Babel2
 
-Babel2 connects the implementations of our core technologies such as [Fluid Construction Grammar](www.fcg-net.org) and Incremental Recruitment Language (IRL) with mechanisms for multi-agent interactions, robotic embodiment, cognitive processing and learning. An extensive monitoring system gives access to every detail of Babel2’s intermediate representations and dynamics and a high modularity ensures that the system can be used in a very wide variety of scenarios.
+Babel2 is a general framework for implementing and running your agent-based experiments, both in a simulated environment or embodied in grounded robots. It connects our core technologies such as [Fluid Construction Grammar](www.fcg-net.org) and Incremental Recruitment Language (IRL) with mechanisms for multi-agent interactions, robotic embodiment, cognitive processing and learning. An extensive monitoring system opens up every detail of Babel2’s intermediate representations and underlying dynamics. A modular design ensures that the system can be used in a wide variety of scenarios. It is therefore possible to use each component individually, according to your needs.
 
 Babel2 is written in Common Lisp and runs in most major Lisp implementations ([CCL](https://ccl.clozure.com), [SBCL](http://www.sbcl.org) and [LispWorks (excluding Personal Edition)](http://www.lispworks.com)) on all major platforms (Linux, Mac OS X, Windows). Its source code is frequently released to the public under the Apache 2.0 License. We recommend using the [Emacs editor with SLIME](https://github.com/EvolutionaryLinguisticsAssociation/Babel2/wiki/Emacs-with-Lisp) or [Sublime Text with additional packages](https://github.com/EvolutionaryLinguisticsAssociation/Babel2/wiki/Sublime-Text-with-Lisp) for Babel development.
 
 The best place for Babel2 and FCG discussion is [the mailing list](https://github.com/EvolutionaryLinguisticsAssociation/Babel2/wiki/Mailing-List). 
 
+**Please note** that this repository contains only the public release of the Babel2 package. Our team works on another, private repository. We aim to release new functionality on a regular basis.
+
 ## Installation
+
+Babel2 is written completely in Common Lisp and has been tested with these Lisp implementations:
 
 ### Mac OS X or Linux
 
 Installation scripts are provided for both [Linux](https://github.com/EvolutionaryLinguisticsAssociation/Babel2/wiki/Installation-Script) and [Mac OS](https://github.com/EvolutionaryLinguisticsAssociation/Babel2/wiki/Installation-Script). These scripts will install all necessary tools for you to get started with Babel2 development.
+
+If you don't want to install a Lisp environment by using the provided scripts, you can follow these instructions for [Linux](https://github.com/EvolutionaryLinguisticsAssociation/Babel2/wiki/Installing-Babel2-on-Linux) or [Mac OS](https://github.com/EvolutionaryLinguisticsAssociation/Babel2/wiki/Installing-Babel2-on-Mac-OS-X).
 
 ### Windows
 
@@ -22,3 +28,11 @@ A good starting point for learning Fluid Construction Grammar is the article "Ba
 
 We regularly organise tutorials on Babel2. Please check [our events page](http://fcg-net.org/events).
 
+## Contributing to Babel2
+
+Feel free to contribute to the Babel2 package! There are 2 ways to do so:
+
+ 1. Reporting bugs
+ 2. Extending Babel2 using a pull request
+
+You can find more information in the [CONTRIBUTING](https://github.com/EvolutionaryLinguisticsAssociation/Babel2/blob/master/CONTRIBUTING.md) file.

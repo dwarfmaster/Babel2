@@ -472,6 +472,7 @@ double quote, calling string handlers as it goes."
   ;; literals get to this point.
   (cdr (assoc token +json-lisp-symbol-tokens+ :test #'string=)))
 
+
 (defvar *accumulator* nil
   "List or vector where elements are stored.")
 (defvar *accumulator-last* nil
@@ -516,7 +517,7 @@ list."
 
 (defun init-string-stream-accumulator ()
   "Initialize a string-stream accumulator."
-  (setq *accumulator* (make-string-output-stream)))
+  (setq *accumulator* (make-string-output-stream :element-type 'character)))
 
 (defun string-stream-accumulator-add (char)
   "Add CHAR to the end of the string-stream accumulator."

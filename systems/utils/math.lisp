@@ -178,16 +178,14 @@ coefficient equal to r**2."
       0
       (min 1 (/ (dot-product vector1 vector2 more-vectors)
                 (eval `(funcall #'* ,@magnitudes)))))))
-      
-(defun multiply-list-of-vectors (vectors)
-  (let ((new-vector (mapcar #'* (first vectors) (second vectors))))
-    (if new-vector
-      (progn (setf vectors (subseq vectors 2))
-        (if vectors
-          (multiply-list-of-vectors (push new-vector
-                                          vectors))
-          new-vector))
-      (first vectors))))
+
+(defun multiply-list-of-vectors (list-of-vectors)
+  "Cross product of a list of vectors."
+  (reduce #'multiply-two-vectors list-of-vectors))
+
+(defun multiply-two-vectors (vector-1 vector-2)
+  "Cross product of two vectors."
+  (mapcar #'* vector-1 vector-2))
 
 (defun rad-to-deg (rad)
   "Radians to degrees"

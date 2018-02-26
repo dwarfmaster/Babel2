@@ -23,71 +23,63 @@
 (defgeneric raise-right-and-speak (nao speech &key)
   (:documentation "Point and speak simultaneously"))
 
-;; TO DO: add speed keyword argument
-(defmethod go-to-posture ((nao nao) posture &key)
-  (let* ((json (make-json 'posture :data `((action . "set") (posture . ,posture))))
-         (response (curl json :host (server-host nao) :port (server-port nao))))
-    (when (assoc :response response)
-      (when (= (rest (assoc :response response)) 1)
-        t))))
+(defmethod go-to-posture ((nao nao) posture &key (speed 0.3))
+  (assert (and (<= speed 1.0)
+               (>= speed 0.0)))
+  (let* ((json (make-json 'posture :data `((action . "set") (posture . ,posture) (speed . ,speed)))))
+    (send-and-test-response-key json :response 1
+                                :host (server-host nao) :port (server-port nao)
+                                :test #'=)))
 
 (defmethod get-posture ((nao nao) &key)
-  (let* ((json (make-json 'posture :data '((action . "get"))))
-         (response (curl json :host (server-host nao) :port (server-port nao))))
-    (when (assoc :posture response)
-      (rest (assoc :posture response)))))
+  (let* ((json (make-json 'posture :data '((action . "get")))))
+    (send-and-get-response-key json :posture
+                               :host (server-host nao) :port (server-port nao))))
 
-;; TO DO: add speed keyword argument
-(defun set-joint (nao joint value)
+(defun set-joint (nao joint value &key (speed 0.3))
   "Move a joint. Not to be used directly, since this function does not check if the value for the joint is within the proper range"
-  (let* ((json (make-json 'set-joint :data `((joint . ,joint) (value . ,value))))
-         (response (curl json :host (server-host nao) :port (server-port nao))))
-    (when (assoc :response response)
-      (when (= (rest (assoc :response response)) 1)
-        t))))
+  (let* ((json (make-json 'set-joint :data `((joint . ,joint) (value . ,value) (speed . ,speed)))))
+    (send-and-test-response-key json :response 1
+                                :host (server-host nao) :port (server-port nao)
+                                :test #'=)))
 
-(defmethod set-head-joint ((nao nao) joint value &key)
+(defmethod set-head-joint ((nao nao) joint value &key (speed 0.3))
+  (assert (and (<= speed 1.0)
+               (>= speed 0.0)))
   (cond ((string= joint "HeadPitch")
          (if (and (< value 0.51)
                   (> value -0.67))
-           (set-joint nao joint value)
+           (set-joint nao joint value :speed speed)
            (error (format nil "The value ~a is out of range for the joint ~a" value joint))))
         ((string= joint "HeadYaw")
          (if (and (< value 2.08)
                   (> value -2.08))
-           (set-joint nao joint value)
+           (set-joint nao joint value :speed speed)
            (error (format nil "The value ~a is out of range for the joint ~a" value joint))))))
 
 (defmethod head-say ((nao nao) yesno &key)
-  (let* ((json (make-json 'move-head :data `((yesno . ,yesno))))
-         (response (curl json :host (server-host nao) :port (server-port nao))))
-    (when (assoc :response response)
-      (when (= (rest (assoc :response response)) 1)
-        t))))
+  (let* ((json (make-json 'move-head :data `((yesno . ,yesno)))))
+    (send-and-test-response-key json :response 1
+                                :host (server-host nao) :port (server-port nao)
+                                :test #'=)))
 
-;; TO DO: add speed keyword argument
 (defmethod raise-left-arm ((nao nao) &key)
-  (let* ((json (make-json 'raise-arm :data '((arm . "LArm"))))
-         (response (curl json :host (server-host nao) :port (server-port nao))))
-    (when (assoc :response response)
-      (when (= (rest (assoc :response response)) 1)
-        t))))
+  (let* ((json (make-json 'raise-arm :data '((arm . "LArm")))))
+    (send-and-test-response-key json :response 1
+                                :host (server-host nao) :port (server-port nao)
+                                :test #'=)))
 
-;; TO DO: add speed keyword argument
 (defmethod raise-right-arm ((nao nao) &key)
-  (let* ((json (make-json 'raise-arm :data '((arm . "RArm"))))
-         (response (curl json :host (server-host nao) :port (server-port nao))))
-    (when (assoc :response response)
-      (when (= (rest (assoc :response response)) 1)
-        t))))
+  (let* ((json (make-json 'raise-arm :data '((arm . "RArm")))))
+    (send-and-test-response-key json :response 1
+                                :host (server-host nao) :port (server-port nao)
+                                :test #'=)))
 
-;; TO DO: add speed keyword argument
 (defmethod raise-both-arms ((nao nao) &key)
-  (let* ((json (make-json 'raise-arm :data '((arm . "Both"))))
-         (response (curl json :host (server-host nao) :port (server-port nao))))
-    (when (assoc :response response)
-      (when (= (rest (assoc :response response)) 1)
-        t))))
+  (let* ((json (make-json 'raise-arm :data '((arm . "Both")))))
+    (send-and-test-response-key json :response 1
+                                :host (server-host nao) :port (server-port nao)
+                                :test #'=)))
 
 ;; These methods are hacked together
 (defmethod raise-left-and-speak ((nao nao) speech &key)

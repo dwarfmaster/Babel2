@@ -5,22 +5,22 @@ from __future__ import print_function
 
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 import json
-import sys
 import argparse
 
 import naoqi
-from naoActions import NaoPosture, NaoJoints, NaoSpeak, NaoRaiseArm, NaoHeadTouch, NaoSpeechRecognition, NaoPointSpeak, NaoMoveHead, NaoHeadSpeak
+from naoActions import NaoPosture, NaoJoints, NaoSpeak, NaoRaiseArm, NaoHeadTouch, NaoSpeechRecognition, NaoPointSpeak,\
+    NaoMoveHead, NaoHeadSpeak
 from naoTests import NaoTestConnection
 from naoVision import NaoVision
 
 
 class NaoActionHandler(object):
-    '''
+    """
     This class dispatches all requests to the Nao
     to the correct handler class. Each handler class
     should implement a do method that returns some json
     data. The json data is send back to Babel2.
-    '''
+    """
 
     def __init__(self, robot_ip, robot_port):
         self._robot_ip = robot_ip
@@ -36,7 +36,7 @@ class NaoActionHandler(object):
             "speechRecognition": NaoSpeechRecognition,
             "moveHead": NaoMoveHead,
             # Combined actions
-            # To Do: figure out a way to make this more compsitional
+            # To Do: figure out a way to make this more compositional
             "pointSpeak": NaoPointSpeak,
             "headSpeak": NaoHeadSpeak
         }
@@ -47,10 +47,10 @@ class NaoActionHandler(object):
             return nao.do(**data_kwargs)
 
 
-def HandlerClassFactory(action_handler):
+def handler_class_factory(action_handler):
 
     class NaoHTTPHandler(BaseHTTPRequestHandler, object):
-        ''' This class receives the HTTP requests for the Nao. '''
+        """ This class receives the HTTP requests for the Nao. """
 
         def __init__(self, *args, **kwargs):
             self.action_handler = action_handler
@@ -63,10 +63,10 @@ def HandlerClassFactory(action_handler):
             self.end_headers()
 
         def do_GET(self):
-            self._set_headers()
+            self._set_headers(0)
 
         def do_HEAD(self):
-            self._set_headers()
+            self._set_headers(0)
 
         def do_POST(self):
             content_len = int(self.headers.getheader('Content-Length'))
@@ -85,8 +85,8 @@ class NaoServer(object):
 
     def __init__(self, robot_ip,
                  robot_port=9559,
-                 server_host="0.0.0.0", ## Host inside Docker
-                 server_port=80): ## Port 80 inside Docker
+                 server_host="0.0.0.0",  # Host inside Docker
+                 server_port=80):  # Port 80 inside Docker
         self._robot_ip = robot_ip
         self._robot_port = robot_port
         self._server_port = server_port
@@ -94,10 +94,11 @@ class NaoServer(object):
 
     def run(self):
         server_address = (self._server_host, self._server_port)
-        naoActionHandler = NaoActionHandler(self._robot_ip, self._robot_port)
-        naoHTTPHandler = HandlerClassFactory(naoActionHandler)
-        httpd = HTTPServer(server_address, naoHTTPHandler)
+        nao_action_handler = NaoActionHandler(self._robot_ip, self._robot_port)
+        nao_http_handler = handler_class_factory(nao_action_handler)
+        httpd = HTTPServer(server_address, nao_http_handler)
         httpd.serve_forever()
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

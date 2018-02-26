@@ -4,6 +4,7 @@
            #:date
            #:time-of-day
            #:make-timestamp
+           #:clone-timestamp
            #:day-of
            #:sec-of
            #:nsec-of
@@ -54,7 +55,12 @@
            #:timestamp-subtimezone
            #:define-timezone
            #:*default-timezone*
+           #:*clock*
+           #:leap-second-adjusted
+           #:clock-now
+           #:clock-today
            #:find-timezone-by-location-name
+           #:reread-timezone-repository
            #:now
            #:today
            #:enable-read-macros
@@ -73,6 +79,8 @@
            #:+days-per-week+
            #:+months-per-year+
            #:+iso-8601-format+
+           #:+iso-8601-date-format+
+           #:+iso-8601-time-format+
            #:+rfc3339-format+
            #:+rfc3339-format/date-only+
            #:+asctime-format+
