@@ -27,6 +27,11 @@
    (top-node 
     :type (or null cip-node) :initform nil :accessor top-node
     :documentation "The top node of the search process")
+   (cxn-supplier-gen
+     :type t :accessor cxn-supplier-gen
+     :initform nil
+     :documentation "Generic data for the cxn supplier"
+     )
    (queue 
     :type list :initform nil :accessor queue
     :documentation "All nodes to be processed sorted by priority")
@@ -53,7 +58,10 @@
                         :diagnostics (unless fcg-2 (diagnostics (original-cxn-set (construction-inventory cip))))
                         :repairs (unless fcg-2 (repairs (original-cxn-set (construction-inventory cip)))))))
     (setf (top-node cip) top-node)
-    (setf (queue cip) (list top-node))))
+    (setf (queue cip) (list top-node)))
+  (setf (cxn-supplier-gen cip)
+        (create-gen-cxn-supplier (construction-inventory cip) (get-configuration cip :cxn-supplier-mode)))
+  )
 
 (defgeneric create-construction-inventory-processor
     (construction-inventory mode &key cfs direction &allow-other-keys)
@@ -199,7 +207,10 @@
 
 (export '(create-cxn-supplier next-cxn cip-node-test cip-goal-test cip-priority))
 
-(defgeneric create-cxn-supplier (node mode)
+(defgeneric create-gen-cxn-supplier (inventory mode)
+  (:documentation "Creates and return a cxn-supplier helper for a new construction inventory"))
+
+(defgeneric create-cxn-supplier (node mode gen-supplier)
   (:documentation "Creates and returns a cxn pool for a new node"))
 
 (defgeneric next-cxn (cxn-supplier node)
@@ -591,7 +602,7 @@ solution."
    do (unless (cxn-supplier node) ;; node handled the first time
         (setf (cxn-supplier node) 
               (create-cxn-supplier
-               node (get-configuration cip :cxn-supplier-mode))))
+               node (get-configuration cip :cxn-supplier-mode) (cxn-supplier-gen (cip node)))))
    (when notify (notify cip-next-node node))
        
    (loop for child in (expand-cip-node  ;; make children

@@ -18,7 +18,11 @@
     :type list :initarg :remaining-constructions :accessor remaining-constructions
     :documentation "A list of constructions that are still to try")))
 
-(defmethod create-cxn-supplier ((node cip-node) (mode (eql :simple-queue)))
+(defmethod create-gen-cxn-supplier ((cxn-inventory construction-inventory) (mode (eql :simple-queue)))
+  nil)
+
+(defmethod create-cxn-supplier ((node cip-node) (mode (eql :simple-queue)) (gen t))
+  (declare (ignore gen))
   (make-instance 'cxn-supplier-with-simple-queue
                  :remaining-constructions
                  (constructions-for-application (construction-inventory (cip node)))))
@@ -77,7 +81,11 @@
 
 (require-configuration :parse-order)
 
-(defmethod create-cxn-supplier ((node cip-node) (mode (eql :ordered-by-label)))
+(defmethod create-gen-cxn-supplier ((cxn-inventory construction-inventory) (mode (eql :ordered-by-label)))
+  nil)
+
+(defmethod create-cxn-supplier ((node cip-node) (mode (eql :ordered-by-label)) (gen t))
+  (declare (ignore gen))
   (let* ((parent (car (all-parents node))))
     (if parent
       ;; copy most of the stuff from the the pool of the parent
@@ -135,7 +143,11 @@
   (:documentation "A construction pool that applies constructions of
                    different labels by a pre-specified order"))
 
-(defmethod create-cxn-supplier ((node cip-node) (mode (eql :ordered-by-label-and-score)))
+(defmethod create-gen-cxn-supplier ((cxn-inventory construction-inventory) (mode (eql :ordered-by-label-and-score)))
+  nil)
+
+(defmethod create-cxn-supplier ((node cip-node) (mode (eql :ordered-by-label-and-score)) (gen t))
+  (declare (ignore gen))
   (let* ((parent (car (all-parents node))))
     (if parent
       ;; copy most of the stuff from the the pool of the parent
@@ -199,7 +211,11 @@
     :type list :initarg :remaining-constructions :accessor remaining-constructions
     :documentation "A list of constructions that are still to try")))
 
-(defmethod create-cxn-supplier ((node cip-node) (mode (eql :scores)))
+(defmethod create-gen-cxn-supplier ((cxn-inventory construction-inventory) (mode (eql :scores)))
+  nil)
+
+(defmethod create-cxn-supplier ((node cip-node) (mode (eql :scores)) (gen t))
+  (declare (ignore gen))
   (if (eq (class-name (class-of (first (constructions-for-application (construction-inventory (cip node)))))) 'scored-construction)
     (make-instance 'cxn-supplier-with-scores
                    :remaining-constructions
@@ -252,8 +268,13 @@
     :accessor remaining-constructions
     :documentation "A list of constructions that are still to try")))
 
+(defmethod create-gen-cxn-supplier ((cxn-inventory construction-inventory) (mode (eql :hashed-simple-queue)))
+  nil)
+
 (defmethod create-cxn-supplier ((node cip-node)
-                                (mode (eql :hashed-simple-queue)))
+                                (mode (eql :hashed-simple-queue))
+                                (gen t))
+  (declare (ignore gen))
   (make-instance
    'cxn-supplier-with-simple-queue
    :remaining-constructions (constructions-for-application-hashed node)))
@@ -340,7 +361,11 @@
                  (and (listp cxn-label) (member label cxn-label)))
         collect cxn))
 
-(defmethod create-cxn-supplier ((node cip-node) (mode (eql :hashed-ordered-by-label)))
+(defmethod create-gen-cxn-supplier ((cxn-inventory construction-inventory) (mode (eql :hashed-ordered-by-label)))
+  nil)
+
+(defmethod create-cxn-supplier ((node cip-node) (mode (eql :hashed-ordered-by-label)) (gen t))
+  (declare (ignore gen))
   (let* ((parent (car (all-parents node))))
     (if parent
       ;; copy most of the stuff from the the pool of the parent
