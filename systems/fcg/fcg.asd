@@ -41,6 +41,7 @@
     :serial t
     :components ((:file "construction-inventory-processor")
                  (:file "cxn-suppliers")
+                 (:file "cxn-graph-supplier")
                  (:file "node-tests")
                  (:file "goal-tests")))
    (:module monitoring
