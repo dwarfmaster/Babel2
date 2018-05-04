@@ -32,12 +32,17 @@
 
 (defun imply? (a b)
   "Heuristic that returns t if an element of a can be unified with an element of b"
-  (consp (some (lambda (x) (member x b :test #'eq-elem)) a))
+  (some (lambda (x) (member x b :test #'eq-elem)) a)
   )
 
 (defun get-unit-name (a)
   "Returns the name of a unit"
   (if (listp (car a)) (car (cdr (car a))) (car a))
+  )
+
+(defun get-unit-features (a)
+  "Returns the features of a unit"
+  (cdr a)
   )
 
 (defun unitJ? (a)
@@ -47,23 +52,46 @@
 
 (defun unitRoot? (a)
   "Tests if a is a ROOT unit"
-  (if (listp a) (eql (car a) 'ROOT) nil)
+  (if (consp a) (eql (car a) 'ROOT) nil)
+  )
+
+(defun unit-unroot (a hashtable)
+  "If the unit is a root one, add to the hashtable a bind from the tag variable to the feature inside"
+  (if (and (consp a) (eql (car a) 'ROOT))
+      (setf (gethash (car (cdr (car (cdr a)))) hashtable)
+            (car (cdr (cdr (car (cdr a)))))
+            )
+      nil
+      )
   )
 
 (defun feature-can-cause (a b)
   "Heuristic that returns t if merging the feature a allows the feature b to match"
-  (if (and (listp a) (listp b) (not (unitRoot? a)) (not (unitRoot? b)))
+  (if (and (listp a) (listp b) (not (unitRoot? b)))
       (let ((aname (symbol-name (car a)))
-            (bname (symbol-name (car b)))
-            (aoper (car (cdr a)))
-            (boper (car (cdr b))))
+            (bname (symbol-name (car b))))
         (cond
-          ((not (string= aname bname)) nil)
-          ((not (eql aoper boper))     t)
-          ((eql aoper '==)             (imply? (cdr (cdr a)) (cdr (cdr b))))
-          ((eql aoper '==p)            (imply? (cdr (cdr a)) (cdr (cdr b))))
-          ((eql aoper '==1)            (imply? (cdr (cdr a)) (cdr (cdr b))))
-          (t                           t)
+          ((not (string= aname bname))
+               nil)
+          ((and (not (listp (car (cdr a)))) (not (listp (car (cdr b)))))
+               (imply? (cdr a) (cdr b)))
+          ((and (listp (car (cdr a))) (listp (car (cdr b))))
+               (let ((aoper (car (car (cdr a))))
+                     (boper (car (car (cdr b)))))
+                 (cond
+                   ((eql boper '==0)        nil)
+                   ((not (eql aoper boper)) t)
+                   ((eql aoper '==)         (imply? (cdr (car (cdr a)))
+                                                    (cdr (car (cdr b)))))
+                   ((eql aoper '==p)        (imply? (cdr (car (cdr a)))
+                                                    (cdr (car (cdr b)))))
+                   ((eql aoper '==1)        (imply? (cdr (car (cdr a)))
+                                                    (cdr (car (cdr b)))))
+                   (t                       t)
+                   )
+                 ))
+          (t
+               t)
           )
         )
       nil
@@ -75,7 +103,9 @@
   (if (unitJ? b)
         nil
         (if (not (eq-elem (get-unit-name a) (get-unit-name b))) nil
-            (some (lambda (x) (some (lambda (y) (feature-can-cause x y)) b)) a)
+            (some (lambda (x) (some (lambda (y) (feature-can-cause x y))
+                               (get-unit-features b)))
+                  (get-unit-features a))
             )
         )
   )
@@ -85,17 +115,36 @@
   (some (lambda (x) (some (lambda (y) (unit-can-cause x y)) b)) a)
   )
 
+(defun replace-tag (unit hashtable)
+  "If an element of the unit is a key of the hashtable, replace it by the value associated"
+  (map 'list (lambda (x) (if (gethash x hashtable) (gethash x hashtable) x)) unit)
+  )
+
+(defun feature-structure-unroot (a)
+  "Move root features to their respective J-units"
+  ;; Create a hash-table binding the tag variable to the feature of the root units
+  (defparameter tag-hash-table (make-hash-table))
+  (map 'list (lambda (x) (unit-unroot x tag-hash-table)) a)
+  ;; Replace tag variable by their content
+  (map 'list (lambda (unit) (replace-tag unit tag-hash-table))
+      ;; Remove root units
+       (remove-if #'unitRoot? a)
+       )
+  )
+
 (defun feature-structure-root? (a)
   (some #'unitRoot? a)
   )
 
 (defun can-cause (a b dir)
   "Heuristic that returns t if merging the construction a allows the match pole (according to dir) of the construction b to match"
-  (or (feature-structure-can-cause (left-pole-structure a)
-                                   (pole-structure (match-pole b dir)))
-      (feature-structure-can-cause (right-pole-structure a)
-                                   (pole-structure (match-pole b dir)))
-      )
+  (consp
+    (or (feature-structure-can-cause (feature-structure-unroot (left-pole-structure a))
+                                     (pole-structure (match-pole b dir)))
+        (feature-structure-can-cause (feature-structure-unroot (right-pole-structure a))
+                                     (pole-structure (match-pole b dir)))
+        )
+    )
   )
 
 ;; #########################################################
@@ -153,12 +202,36 @@
   cxns-edges
   )
 
+(defun feature-neg? (f)
+  "Test if a feature uses the ==0 operator"
+  (if (consp (car (cdr f)))
+      (eql (car (car (cdr f))) '==0)
+      nil
+      )
+  )
+
+(defun unit-start? (a)
+  "Test if a unit can be immediately applied (either empty or only negation lock)"
+  (every #'feature-neg? (cdr a))
+  )
+
+(defun feature-structure-start? (a)
+  "Test if a feature structure can be applied from start (all units are J-units or empty or only negations)"
+  (every (lambda (u) (or (unitJ? u) (unit-start? u))) a)
+  )
+
 (defun make-cxns-actives (cxns dir)
   "List all constructions (by names) that have a root clause in their match pole (according to dir)"
-  (loop for cxn in cxns
-     when (feature-structure-root? (pole-structure (match-pole cxn dir)))
-     collect cxn
-     )
+  (sort
+    (loop for cxn in cxns
+       when (or
+               (feature-structure-root?  (pole-structure (match-pole cxn dir)))
+               (feature-structure-start? (pole-structure (match-pole cxn dir)))
+              )
+       collect (name cxn)
+       )
+    #'string<
+    )
   )
 
 (defun make-cxn-dependency-graph (construction-inventory dir)
@@ -176,18 +249,30 @@
   (setq fstr (make-array '(0) :element-type 'base-char
                               :fill-pointer 0 :adjustable t
                          ))
-  (with-output-to-string (s fstr)
-      (format s "digraph cxn-graph {~%")
-      (loop for cxn-name being the hash-keys of (cxn-graph-cxns graph)
-         do (format s "    ~A [label=~S];~%" cxn-name cxn-name)
-        )
-      (format s "~%")
-      (loop for cxn-name being the hash-keys of (cxn-graph-edges graph)
-         do (loop for nxt-name in (gethash cxn-name (cxn-graph-edges graph))
-                do (format s "    ~A -> ~A;~%" cxn-name nxt-name)
-               )
-        )
-      (format s "}~%")
+  (let ((make-id (lambda (s) (map 'string (lambda (c) (if (find c "-." :test #'char=)
+                                                          #\_
+                                                          c))
+                                          (symbol-name s)))))
+    (with-output-to-string (s fstr)
+        (format s "digraph cxn_graph {~%")
+        (loop for cxn-name being the hash-keys of (cxn-graph-cxns graph)
+           do (format s "    ~A [label=\"~A\"];~%" (funcall make-id cxn-name)
+                                                   (string-downcase cxn-name)
+                      )
+          )
+        (format s "~%")
+        (loop for cxn-name in (cxn-graph-act graph)
+           do (format s "    ~A [shape = doubleoctagon];" (funcall make-id cxn-name))
+          )
+        (format s "~%")
+        (loop for cxn-name being the hash-keys of (cxn-graph-edges graph)
+           do (loop for nxt-name in (gethash cxn-name (cxn-graph-edges graph))
+                  do (format s "    ~A -> ~A;~%" (funcall make-id cxn-name)
+                                                 (funcall make-id nxt-name))
+                 )
+          )
+        (format s "}~%")
+      )
     )
   fstr
   )
