@@ -162,7 +162,7 @@
      )
    (cxn-dependency-graph-actives
      :type list :initarg :actives :accessor cxn-graph-act
-     :documentation "A list of the active construction names"
+     :documentation "An ordered list of the active construction names"
      )
   ))
 
@@ -220,13 +220,17 @@
   (every (lambda (u) (or (unitJ? u) (unit-start? u))) a)
   )
 
-(defun make-cxns-actives (cxns dir)
+(defun make-cxns-actives (cxns dir initial-cfs)
   "List all constructions (by names) that have a root clause in their match pole (according to dir)"
   (sort
     (loop for cxn in cxns
        when (or
-               (feature-structure-root?  (pole-structure (match-pole cxn dir)))
                (feature-structure-start? (pole-structure (match-pole cxn dir)))
+               (feature-structure-can-cause initial-cfs
+                                            (feature-structure-unroot
+                                              (pole-structure (match-pole cxn dir))
+                                              )
+                                            )
               )
        collect (name cxn)
        )
@@ -234,13 +238,13 @@
     )
   )
 
-(defun make-cxn-dependency-graph (construction-inventory dir)
+(defun make-cxn-dependency-graph (construction-inventory dir initial-cfs)
   "Make a cxn-dependency-graph from a construction inventory"
   (let ((cxns (constructions construction-inventory)))
     (make-instance 'cxn-dependency-graph
-                   :cxns    (make-cxns-hash-table cxns    )
-                   :edges   (make-cxns-edges      cxns dir)
-                   :actives (make-cxns-actives    cxns dir)
+                   :cxns    (make-cxns-hash-table cxns                )
+                   :edges   (make-cxns-edges      cxns dir            )
+                   :actives (make-cxns-actives    cxns dir initial-cfs)
                    )
   ))
 
@@ -277,6 +281,54 @@
   fstr
   )
 
+;; #########################################################
+;; cxn-supplier
+;; ---------------------------------------------------------
+
+(defmethod create-gen-cxn-supplier ((cip construction-inventory-processor)
+                                    (mode (eql :dependency-graph)))
+  (make-cxn-dependency-graph (construction-inventory cip)
+                             (direction cip)
+                             (initial-cfs cip)
+                             )
+  )
+
+(defun union-ordered-list (l1 l2)
+  "Compute the union of two ordered lists of strings, the result is still ordered"
+  (cond
+    ((null l1) l2)
+    ((null l2) l1)
+    ((string= (car l1) (car l2)) (cons (car l1) (union-ordered-list (cdr l1) (cdr l2))))
+    ((string< (car l1) (car l2)) (cons (car l1) (union-ordered-list (cdr l1) l2      )))
+    (t                           (cons (car l2) (union-ordered-list l1       (cdr l2))))
+    )
+  )
+
+(defun merge-into-actives (cxn-name graph)
+  "Merge into the graph active the children of cxn-name"
+  (setf (cxn-graph-act graph) (union-ordered-list
+                                (gethash (cxn-graph-edges graph) cxn-name)
+                                (cxn-graph-act graph)
+                                ))
+  )
+
+(defmethod create-cxn-supplier ((node cip-node)
+                                (gr cxn-dependency-graph))
+  (defparameter ngr
+    (make-instance 'cxn-dependency-graph
+                   :cxns    (cxn-graph-cxns  gr)
+                   :edges   (cxn-graph-edges gr)
+                   :actives (copy-list (cxn-graph-act gr)
+                   )))
+  (loop for cxn in (applied-constructions node)
+        do (merge-into-actives (name cxn) ngr)
+        )
+  ngr
+  )
+
+(defmethod next-cxn ((cxn-supplier cxn-dependency-graph) (node cip-node))
+  (pop (cxn-graph-act cxn-supplier))
+  )
 
 
 
