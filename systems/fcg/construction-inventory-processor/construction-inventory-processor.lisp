@@ -210,7 +210,7 @@
 (defgeneric create-gen-cxn-supplier (cip mode)
   (:documentation "Creates and return a cxn-supplier helper for a new construction inventory"))
 
-(defgeneric create-cxn-supplier (node mode gen-supplier)
+(defgeneric create-cxn-supplier (node gen-supplier)
   (:documentation "Creates and returns a cxn pool for a new node"))
 
 (defgeneric next-cxn (cxn-supplier node)
@@ -602,7 +602,7 @@ solution."
    do (unless (cxn-supplier node) ;; node handled the first time
         (setf (cxn-supplier node) 
               (create-cxn-supplier
-               node (get-configuration cip :cxn-supplier-mode) (cxn-supplier-gen (cip node)))))
+               node (cxn-supplier-gen (cip node)))))
    (when notify (notify cip-next-node node))
        
    (loop for child in (expand-cip-node  ;; make children

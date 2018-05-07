@@ -19,9 +19,9 @@
     :documentation "A list of constructions that are still to try")))
 
 (defmethod create-gen-cxn-supplier ((cip construction-inventory-processor) (mode (eql :simple-queue)))
-  nil)
+  :simple-queue)
 
-(defmethod create-cxn-supplier ((node cip-node) (mode (eql :simple-queue)) (gen t))
+(defmethod create-cxn-supplier ((node cip-node) (gen (eql :simple-queue)))
   (declare (ignore gen))
   (make-instance 'cxn-supplier-with-simple-queue
                  :remaining-constructions
@@ -82,9 +82,9 @@
 (require-configuration :parse-order)
 
 (defmethod create-gen-cxn-supplier ((cip construction-inventory-processor) (mode (eql :ordered-by-label)))
-  nil)
+  :ordered-by-label)
 
-(defmethod create-cxn-supplier ((node cip-node) (mode (eql :ordered-by-label)) (gen t))
+(defmethod create-cxn-supplier ((node cip-node) (gen (eql :ordered-by-label)))
   (declare (ignore gen))
   (let* ((parent (car (all-parents node))))
     (if parent
@@ -144,9 +144,9 @@
                    different labels by a pre-specified order"))
 
 (defmethod create-gen-cxn-supplier ((cip construction-inventory-processor) (mode (eql :ordered-by-label-and-score)))
-  nil)
+  :ordered-by-label-and-score)
 
-(defmethod create-cxn-supplier ((node cip-node) (mode (eql :ordered-by-label-and-score)) (gen t))
+(defmethod create-cxn-supplier ((node cip-node) (gen (eql :ordered-by-label-and-score)))
   (declare (ignore gen))
   (let* ((parent (car (all-parents node))))
     (if parent
@@ -212,9 +212,9 @@
     :documentation "A list of constructions that are still to try")))
 
 (defmethod create-gen-cxn-supplier ((cip construction-inventory-processor) (mode (eql :scores)))
-  nil)
+  :scores)
 
-(defmethod create-cxn-supplier ((node cip-node) (mode (eql :scores)) (gen t))
+(defmethod create-cxn-supplier ((node cip-node) (gen (eql :scores)))
   (declare (ignore gen))
   (if (eq (class-name (class-of (first (constructions-for-application (construction-inventory (cip node)))))) 'scored-construction)
     (make-instance 'cxn-supplier-with-scores
@@ -269,11 +269,10 @@
     :documentation "A list of constructions that are still to try")))
 
 (defmethod create-gen-cxn-supplier ((cip construction-inventory-processor) (mode (eql :hashed-simple-queue)))
-  nil)
+  :hashed-simple-queue)
 
 (defmethod create-cxn-supplier ((node cip-node)
-                                (mode (eql :hashed-simple-queue))
-                                (gen t))
+                                (gen (eql :hashed-simple-queue)))
   (declare (ignore gen))
   (make-instance
    'cxn-supplier-with-simple-queue
@@ -362,9 +361,9 @@
         collect cxn))
 
 (defmethod create-gen-cxn-supplier ((cip construction-inventory-processor) (mode (eql :hashed-ordered-by-label)))
-  nil)
+  :hashed-ordered-by-label)
 
-(defmethod create-cxn-supplier ((node cip-node) (mode (eql :hashed-ordered-by-label)) (gen t))
+(defmethod create-cxn-supplier ((node cip-node) (gen (eql :hashed-ordered-by-label)))
   (declare (ignore gen))
   (let* ((parent (car (all-parents node))))
     (if parent
