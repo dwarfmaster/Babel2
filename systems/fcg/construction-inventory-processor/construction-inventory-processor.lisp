@@ -60,7 +60,7 @@
     (setf (top-node cip) top-node)
     (setf (queue cip) (list top-node)))
   (setf (cxn-supplier-gen cip)
-        (create-gen-cxn-supplier (construction-inventory cip) (get-configuration cip :cxn-supplier-mode)))
+        (create-gen-cxn-supplier cip (get-configuration cip :cxn-supplier-mode)))
   )
 
 (defgeneric create-construction-inventory-processor
@@ -207,7 +207,7 @@
 
 (export '(create-cxn-supplier next-cxn cip-node-test cip-goal-test cip-priority))
 
-(defgeneric create-gen-cxn-supplier (inventory mode)
+(defgeneric create-gen-cxn-supplier (cip mode)
   (:documentation "Creates and return a cxn-supplier helper for a new construction inventory"))
 
 (defgeneric create-cxn-supplier (node mode gen-supplier)

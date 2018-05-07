@@ -18,7 +18,7 @@
     :type list :initarg :remaining-constructions :accessor remaining-constructions
     :documentation "A list of constructions that are still to try")))
 
-(defmethod create-gen-cxn-supplier ((cxn-inventory construction-inventory) (mode (eql :simple-queue)))
+(defmethod create-gen-cxn-supplier ((cip construction-inventory-processor) (mode (eql :simple-queue)))
   nil)
 
 (defmethod create-cxn-supplier ((node cip-node) (mode (eql :simple-queue)) (gen t))
@@ -81,7 +81,7 @@
 
 (require-configuration :parse-order)
 
-(defmethod create-gen-cxn-supplier ((cxn-inventory construction-inventory) (mode (eql :ordered-by-label)))
+(defmethod create-gen-cxn-supplier ((cip construction-inventory-processor) (mode (eql :ordered-by-label)))
   nil)
 
 (defmethod create-cxn-supplier ((node cip-node) (mode (eql :ordered-by-label)) (gen t))
@@ -143,7 +143,7 @@
   (:documentation "A construction pool that applies constructions of
                    different labels by a pre-specified order"))
 
-(defmethod create-gen-cxn-supplier ((cxn-inventory construction-inventory) (mode (eql :ordered-by-label-and-score)))
+(defmethod create-gen-cxn-supplier ((cip construction-inventory-processor) (mode (eql :ordered-by-label-and-score)))
   nil)
 
 (defmethod create-cxn-supplier ((node cip-node) (mode (eql :ordered-by-label-and-score)) (gen t))
@@ -211,7 +211,7 @@
     :type list :initarg :remaining-constructions :accessor remaining-constructions
     :documentation "A list of constructions that are still to try")))
 
-(defmethod create-gen-cxn-supplier ((cxn-inventory construction-inventory) (mode (eql :scores)))
+(defmethod create-gen-cxn-supplier ((cip construction-inventory-processor) (mode (eql :scores)))
   nil)
 
 (defmethod create-cxn-supplier ((node cip-node) (mode (eql :scores)) (gen t))
@@ -268,7 +268,7 @@
     :accessor remaining-constructions
     :documentation "A list of constructions that are still to try")))
 
-(defmethod create-gen-cxn-supplier ((cxn-inventory construction-inventory) (mode (eql :hashed-simple-queue)))
+(defmethod create-gen-cxn-supplier ((cip construction-inventory-processor) (mode (eql :hashed-simple-queue)))
   nil)
 
 (defmethod create-cxn-supplier ((node cip-node)
@@ -361,7 +361,7 @@
                  (and (listp cxn-label) (member label cxn-label)))
         collect cxn))
 
-(defmethod create-gen-cxn-supplier ((cxn-inventory construction-inventory) (mode (eql :hashed-ordered-by-label)))
+(defmethod create-gen-cxn-supplier ((cip construction-inventory-processor) (mode (eql :hashed-ordered-by-label)))
   nil)
 
 (defmethod create-cxn-supplier ((node cip-node) (mode (eql :hashed-ordered-by-label)) (gen t))
