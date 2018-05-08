@@ -38,6 +38,12 @@ this is the name that you use in the def-fcg-constructions macro.")
     :initform '(subunits)
     :initarg :hierarchy-features
     :accessor hierarchy-features)
+   (supplier-data
+     :initform t
+     :initarg  :supplier-data
+     :accessor supplier-data
+     :documentation "Data that can be incrementally constructed, to be used by the cxn-supplier"
+     )
    (original-cxn-set
    ;; This is a pointer back to the fcg-light construction-inventory to which this construction-set belongs
    ;; (to which is appears in the slot 'processing-cxn-inventory'). So, if you know which cxn applied,
@@ -121,6 +127,7 @@ is overwritten."
   (set-configuration (visualization-configuration construction-inventory) :show-constructional-dependencies t :replace nil)
   (set-configuration (visualization-configuration construction-inventory) :labeled-paths nil :replace nil)
   (set-configuration (visualization-configuration construction-inventory) :colored-paths nil :replace nil)
+
   )
 
 ;; ------------------------------------------------------------------------
@@ -173,7 +180,9 @@ is overwritten."
 (defmethod add-cxn :after ((construction construction)
                            (construction-inventory construction-inventory) &key)
   ;(notify cxn-added construction construction-inventory)
-  )
+  (supplier-data-add-cxn (supplier-data construction-inventory)
+                         construction-inventory
+                         construction))
 
 
 
@@ -191,7 +200,10 @@ is overwritten."
 		       &key (key #'identity) (test #'eql))
   (let ((construction (find-cxn construction construction-inventory :key key :test test)))
     (when construction
-      (delete-cxn construction construction-inventory))))
+      (delete-cxn construction construction-inventory)
+      (supplier-data-remove-cxn (supplier-data construction-inventory)
+                                construction-inventory
+                                construction))))
 
 (define-event cxn-deleted (construction construction)
   (construction-inventory construction-inventory))
@@ -214,6 +226,36 @@ is overwritten."
 
 
 ;; ------------------------------------------------------------------------
+;; supplier-data 
+
+(defgeneric supplier-data-remove-cxn (supplier-data cxn-inventory cxn)
+  (:documentation "Update the supplier data when a construction is removed")
+  )
+
+(defmethod supplier-data-remove-cxn ((supplier-data t) cxn-inventory cxn)
+  (declare (ignore supplier-data cxn-inventory cxn))
+  t
+  )
+
+(defgeneric supplier-data-add-cxn (supplier-data cxn-inventory cxn)
+  (:documentation "Update the supplier data when a construction is added")
+  )
+
+(defmethod supplier-data-add-cxn ((supplier-data t) cxn-inventory cxn)
+  (declare (ignore supplier-data cxn-inventory cxn))
+  t
+  )
+
+(defgeneric supplier-data-recompute (cxn-inventory mode)
+  (:documentation "Recompute a supplier-data for a construction inventory")
+  )
+
+(defmethod supplier-data-recompute (cxn-inventory (mode t))
+  (declare (ignore cxn-inventory mode))
+  t
+  )
+
+;; ------------------------------------------------------------------------
 ;; implementations of other methods
 
 (defmethod copy-object-content ((source construction-inventory)
@@ -233,7 +275,12 @@ is overwritten."
 (defmethod set-configuration ((construction-inventory construction-inventory) 
                               key value &key (replace t))
   (set-configuration (configuration construction-inventory)
-                     key value :replace replace))
+                     key value :replace replace)
+  (when (eql key :cxn-supplier-mode)
+    (setf (supplier-data construction-inventory)
+          (supplier-data-recompute construction-inventory
+                                   (get-configuration construction-inventory
+                                                      :cxn-supplier-mode)))))
 
 (defmethod get-configuration ((construction-inventory construction-inventory) key &key)
   (get-configuration (configuration construction-inventory) key))
