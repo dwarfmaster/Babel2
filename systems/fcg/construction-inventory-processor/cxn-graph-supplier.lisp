@@ -222,7 +222,12 @@
     (loop for cxn in cxns
        when (or
                (feature-structure-start? (pole-structure (match-pole cxn dir)))
-               (feature-structure-can-cause cfs
+               (feature-structure-can-cause (left-pole-structure cfs)
+                                            (feature-structure-unroot
+                                              (pole-structure (match-pole cxn dir))
+                                              )
+                                            )
+               (feature-structure-can-cause (right-pole-structure cfs)
                                             (feature-structure-unroot
                                               (pole-structure (match-pole cxn dir))
                                               )
@@ -272,16 +277,16 @@
   fstr
   )
 
-(defstruct dependency-graph-supplier-data
-  parsing-dep-graph
-  production-dep-graph
+(defstruct (dependency-graph-supplier-data (:conc-name dep-graph-))
+  parsing
+  production
   )
 
-(defun make-dependency-graph-supplier-data (construction-inventory)
+(defun create-dependency-graph-supplier-data (construction-inventory)
   "Create the dependencies graphs in both directions"
   (make-dependency-graph-supplier-data
-    :parsing-dep-graph (make-cxn-dependency-graph construction-inventory 'parsing)
-    :production-dep-graph (make-cxn-dependency-graph construction-inventory 'production)
+    :parsing (make-cxn-dependency-graph construction-inventory 'parsing)
+    :production (make-cxn-dependency-graph construction-inventory 'production)
     )
   )
 
@@ -298,16 +303,16 @@
     )
   )
 
-(defun dependency-graph-add-cxn (graph construction)
+(defun dependency-graph-add-cxn (graph construction dir)
   "Add a construction (assumes there is no construction with its name) to the graph"
   (setf (gethash (name construction) (cxn-graph-edges graph)) nil)
-  (loop for cxn-name being the hash-key of (cxn-graph-edges graph)
-     do (when (can-cause construction (gethash cxn-name (cxn-graph-cxns graph)))
+  (loop for cxn-name being the hash-key of (cxn-graph-cxns graph)
+     do (when (can-cause construction (gethash cxn-name (cxn-graph-cxns graph)) dir)
           (setf (gethash (name construction) (cxn-graph-edges graph))
                 (insert-in-sorted-list cxn-name
                                        (gethash (name construction)
                                                 (cxn-graph-edges graph)))))
-        (when (can-cause (gethash cxn-name (cxn-graph-cxns graph)) construction)
+        (when (can-cause (gethash cxn-name (cxn-graph-cxns graph)) construction dir)
           (setf (gethash cxn-name (cxn-graph-edges graph))
                 (insert-in-sorted-list (name construction)
                                        (gethash cxn-name
@@ -317,26 +322,26 @@
   (setf (gethash (name construction) (cxn-graph-cxns graph)) construction)
   )
 
-(defstruct dependency-graph-actives
-  dep-graph-act-list
-  dep-graph-act-graph
+(defstruct (dependency-graph-actives (:conc-name dep-graph-act-))
+  lst
+  graph
   )
 
-(defun make-dependency-graph-actives (cip supplier-data)
+(defun create-dependency-graph-actives (cip supplier-data)
   (make-dependency-graph-actives
-    :dep-graph-act-list 
+    :lst 
         (make-cxns-actives
-          (constructions cip)
+          (constructions (construction-inventory cip))
           (direction     cip)
-          (cfs   cip)
+          (initial-cfs   cip)
           )
-    :dep-graph-act-graph
+    :graph
         (let ((dir (direction cip)))
           (cond
-            ( (eql dir '<-)         (parsing-dep-graph supplier-data)    )
-            ( (eql dir 'parsing)    (parsing-dep-graph supplier-data)    )
-            ( (eql dir '->)         (production-dep-graph supplier-data) )
-            ( (eql dir 'production) (production-dep-graph supplier-data) )
+            ( (eql dir '<-)         (dep-graph-parsing supplier-data)    )
+            ( (eql dir 'parsing)    (dep-graph-parsing supplier-data)    )
+            ( (eql dir '->)         (dep-graph-production supplier-data) )
+            ( (eql dir 'production) (dep-graph-production supplier-data) )
             )
           )
     )
@@ -349,25 +354,25 @@
 (defmethod supplier-data-remove-cxn ((supplier-data dependency-graph-supplier-data)
                                      (cxn-inventory construction-inventory)
                                      (cxn construction))
-  (dependency-graph-remove-cxn (parsing-dep-graph supplier-data))
-  (dependency-graph-remove-cxn (production-dep-graph supplier-data)))
+  (dependency-graph-remove-cxn (dep-graph-parsing supplier-data))
+  (dependency-graph-remove-cxn (dep-graph-production supplier-data)))
 
 (defmethod supplier-data-add-cxn ((supplier-data dependency-graph-supplier-data)
                                      (cxn-inventory construction-inventory)
                                      (cxn construction))
-  (dependency-graph-add-cxn (parsing-dep-graph supplier-data))
-  (dependency-graph-add-cxn (production-dep-graph supplier-data)))
+  (dependency-graph-add-cxn (dep-graph-parsing supplier-data)    cxn 'parsing)
+  (dependency-graph-add-cxn (dep-graph-production supplier-data) cxn 'production))
 
 (defmethod supplier-data-recompute ((cxn-inventory construction-inventory)
                                     (mode (eql :dependency-graph)))
   (declare (ignore mode))
-  (make-dependency-graph-supplier-data cxn-inventory)
+  (create-dependency-graph-supplier-data cxn-inventory)
   )
 
 (defmethod create-gen-cxn-supplier ((cip construction-inventory-processor)
                                     (mode (eql :dependency-graph)))
   (let ((supplier-data (supplier-data (construction-inventory cip))))
-    (make-dependency-graph-actives cip supplier-data)))
+    (print  (create-dependency-graph-actives cip supplier-data))))
 
 (defun union-ordered-list (l1 l2)
   "Compute the union of two ordered lists of strings, the result is still ordered"
@@ -382,28 +387,28 @@
 
 (defun merge-into-actives (cxn-name actives)
   "Merge the children of cxn-name into the list of actives constructions"
-  (setf (dep-graph-act-list actives)
+  (setf (dep-graph-act-lst actives)
         (union-ordered-list
-          (gethash (cxn-graph-edges (dep-graph-act-graph actives)) cxn-name)
-          (dep-graph-act-list actives))))
+          (gethash cxn-name (cxn-graph-edges (dep-graph-act-graph actives)))
+          (dep-graph-act-lst actives))))
 
 (defmethod create-cxn-supplier ((node cip-node)
-                                (parent cip-node)
-                                (cxn-applied construction)
+                                parent
+                                cxn-applied
                                 (root-actives dependency-graph-actives))
-  (defparameter actives (if parent (cxn-supplier parent) (root-actives)))
+  (defparameter actives (if parent (cxn-supplier parent) root-actives))
   (defparameter nactives
     (make-dependency-graph-actives
-      :dep-graph-act-list  (copy-list (dep-graph-act-lsit actives))
-      :dep-graph-act-graph (dep-act-act-graph actives)
+      :lst  (copy-list (dep-graph-act-lst actives))
+      :graph (dep-graph-act-graph actives)
       ))
   (when cxn-applied (merge-into-actives (name cxn-applied) nactives))
   nactives
   )
 
 (defmethod next-cxn ((cxn-supplier dependency-graph-actives) (node cip-node))
-  (pop (dep-graph-act-list cxn-supplier))
-  )
+  (let ((cxn-name (pop (dep-graph-act-lst cxn-supplier))))
+    (gethash cxn-name (cxn-graph-cxns (dep-graph-act-graph cxn-supplier)))))
 
 
 
