@@ -58,9 +58,12 @@
                         :diagnostics (unless fcg-2 (diagnostics (original-cxn-set (construction-inventory cip))))
                         :repairs (unless fcg-2 (repairs (original-cxn-set (construction-inventory cip)))))))
     (setf (top-node cip) top-node)
-    (setf (queue cip) (list top-node)))
-  (setf (cxn-supplier-gen cip)
-        (create-gen-cxn-supplier cip (get-configuration cip :cxn-supplier-mode)))
+    (setf (queue cip) (list top-node))
+    (setf (cxn-supplier-gen cip)
+          (create-gen-cxn-supplier cip (get-configuration cip :cxn-supplier-mode)))
+    (setf (cxn-supplier top-node)
+          (create-cxn-supplier top-node nil nil (cxn-supplier-gen cip))))
+  ()
   )
 
 (defgeneric create-construction-inventory-processor
@@ -210,8 +213,8 @@
 (defgeneric create-gen-cxn-supplier (cip mode)
   (:documentation "Creates and return a cxn-supplier helper for a new construction inventory"))
 
-(defgeneric create-cxn-supplier (node gen-supplier)
-  (:documentation "Creates and returns a cxn pool for a new node"))
+(defgeneric create-cxn-supplier (node parent cxn gen-supplier)
+  (:documentation "Creates and returns a cxn pool for a new node, obtained by applying cxn to parent"))
 
 (defgeneric next-cxn (cxn-supplier node)
   (:documentation "Returns the next construction to try from a pool"))
@@ -267,6 +270,10 @@
                         :diagnostics (diagnostics node)
                         :repairs (repairs node)
                         :problems (problems node))))
+    (setf (cxn-supplier child) (create-cxn-supplier child node
+                                                    (car-applied-cxn car)
+                                                    (cxn-supplier-gen (cip node))
+                                                    ))
     (push child (children node))
     child))
 
@@ -599,10 +606,8 @@ solution."
    with queue-mode = (get-configuration cip :queue-mode)
    for node = (pop (queue cip))
    when node
-   do (unless (cxn-supplier node) ;; node handled the first time
-        (setf (cxn-supplier node) 
-              (create-cxn-supplier
-               node (cxn-supplier-gen (cip node)))))
+   do 
+
    (when notify (notify cip-next-node node))
        
    (loop for child in (expand-cip-node  ;; make children

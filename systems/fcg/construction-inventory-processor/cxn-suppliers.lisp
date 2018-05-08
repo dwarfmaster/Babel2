@@ -21,8 +21,9 @@
 (defmethod create-gen-cxn-supplier ((cip construction-inventory-processor) (mode (eql :simple-queue)))
   :simple-queue)
 
-(defmethod create-cxn-supplier ((node cip-node) (gen (eql :simple-queue)))
-  (declare (ignore gen))
+(defmethod create-cxn-supplier ((node cip-node) parent applied-cxn
+                                (gen (eql :simple-queue)))
+  (declare (ignore gen parent applied-cxn))
   (make-instance 'cxn-supplier-with-simple-queue
                  :remaining-constructions
                  (constructions-for-application (construction-inventory (cip node)))))
@@ -84,8 +85,9 @@
 (defmethod create-gen-cxn-supplier ((cip construction-inventory-processor) (mode (eql :ordered-by-label)))
   :ordered-by-label)
 
-(defmethod create-cxn-supplier ((node cip-node) (gen (eql :ordered-by-label)))
-  (declare (ignore gen))
+(defmethod create-cxn-supplier ((node cip-node) parent applied-cxn
+                                (gen (eql :ordered-by-label)))
+  (declare (ignore gen parent applied-cxn))
   (let* ((parent (car (all-parents node))))
     (if parent
       ;; copy most of the stuff from the the pool of the parent
@@ -146,8 +148,9 @@
 (defmethod create-gen-cxn-supplier ((cip construction-inventory-processor) (mode (eql :ordered-by-label-and-score)))
   :ordered-by-label-and-score)
 
-(defmethod create-cxn-supplier ((node cip-node) (gen (eql :ordered-by-label-and-score)))
-  (declare (ignore gen))
+(defmethod create-cxn-supplier ((node cip-node) parent applied-cxn
+                                (gen (eql :ordered-by-label-and-score)))
+  (declare (ignore gen parent applied-cxn))
   (let* ((parent (car (all-parents node))))
     (if parent
       ;; copy most of the stuff from the the pool of the parent
@@ -214,8 +217,9 @@
 (defmethod create-gen-cxn-supplier ((cip construction-inventory-processor) (mode (eql :scores)))
   :scores)
 
-(defmethod create-cxn-supplier ((node cip-node) (gen (eql :scores)))
-  (declare (ignore gen))
+(defmethod create-cxn-supplier ((node cip-node) parent applied-cxn
+                                (gen (eql :scores)))
+  (declare (ignore gen parent applied-cxn))
   (if (eq (class-name (class-of (first (constructions-for-application (construction-inventory (cip node)))))) 'scored-construction)
     (make-instance 'cxn-supplier-with-scores
                    :remaining-constructions
@@ -271,9 +275,9 @@
 (defmethod create-gen-cxn-supplier ((cip construction-inventory-processor) (mode (eql :hashed-simple-queue)))
   :hashed-simple-queue)
 
-(defmethod create-cxn-supplier ((node cip-node)
+(defmethod create-cxn-supplier ((node cip-node) parent applied-cxn
                                 (gen (eql :hashed-simple-queue)))
-  (declare (ignore gen))
+  (declare (ignore gen parent applied-cxn))
   (make-instance
    'cxn-supplier-with-simple-queue
    :remaining-constructions (constructions-for-application-hashed node)))
@@ -363,8 +367,9 @@
 (defmethod create-gen-cxn-supplier ((cip construction-inventory-processor) (mode (eql :hashed-ordered-by-label)))
   :hashed-ordered-by-label)
 
-(defmethod create-cxn-supplier ((node cip-node) (gen (eql :hashed-ordered-by-label)))
-  (declare (ignore gen))
+(defmethod create-cxn-supplier ((node cip-node) parent applied-cxn
+                                (gen (eql :hashed-ordered-by-label)))
+  (declare (ignore gen parent applied-cxn))
   (let* ((parent (car (all-parents node))))
     (if parent
       ;; copy most of the stuff from the the pool of the parent
