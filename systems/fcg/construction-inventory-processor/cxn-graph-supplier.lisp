@@ -18,6 +18,7 @@
         ((variable? a)                 t                                        )
         ((variable? b)                 t                                        )
         ((and (symbolp a) (symbolp b)) (string= (symbol-name a) (symbol-name b)))
+        ((and (stringp a) (stringp b)) (string= a b))
         ( t                            nil                                      )
   ))
 
@@ -36,8 +37,9 @@
   )
 
 (defun get-unit-name (a)
-  "Returns the name of a unit"
-  (if (listp (car a)) (car (cdr (car a))) (car a))
+  "Returns the name of a unit (if ROOT returns a variable)"
+  (if (listp (car a)) (car (cdr (car a)))
+      (if (eql (car a) 'ROOT) '?ROOT (car a)))
   )
 
 (defun get-unit-features (a)
@@ -120,6 +122,10 @@
   (map 'list (lambda (x) (if (gethash x hashtable) (gethash x hashtable) x)) unit)
   )
 
+(defun unJ (unit)
+  (if (consp unit) (cons (get-unit-name unit) (cdr unit)) unit)
+  )
+
 (defun feature-structure-unroot (a)
   "Move root features to their respective J-units"
   ;; Create a hash-table binding the tag variable to the feature of the root units
@@ -127,9 +133,10 @@
   (map 'list (lambda (x) (unit-unroot x tag-hash-table)) a)
   ;; Replace tag variable by their content
   (map 'list (lambda (unit) (replace-tag unit tag-hash-table))
-      ;; Remove root units
-       (remove-if #'unitRoot? a)
-       )
+       ;; Make all units non-J
+       (map 'list #'unJ
+            ;; Remove root units
+            (remove-if #'unitRoot? a)))
   )
 
 (defun feature-structure-root? (a)
@@ -216,18 +223,41 @@
   (every (lambda (u) (or (unitJ? u) (unit-start? u))) a)
   )
 
+(defun root-feature->cxn-feature (feat)
+  "Prefix feature by == if it is a cons"
+  (if (consp (car (cdr feat)))
+      (cons (car feat) (cons (cons '== (car (cdr feat))) nil))
+      feat)
+  )
+
+(defun root-unit->cxn-unit (unit)
+  "Prefix all features by =="
+  (cons (car unit)
+        (map 'list #'root-feature->cxn-feature (cdr unit))
+        )
+  )
+
+(defun root-feature-structure->cxn-feature-structure (fs)
+  "Prefix all features by =="
+  (map 'list #'root-unit->cxn-unit fs)
+  )
+
 (defun make-cxns-actives (cxns dir cfs)
   "List all constructions (by names) that have a root clause in their match pole (according to dir)"
   (sort
     (loop for cxn in cxns
        when (or
                (feature-structure-start? (pole-structure (match-pole cxn dir)))
-               (feature-structure-can-cause (left-pole-structure cfs)
+               (feature-structure-can-cause (root-feature-structure->cxn-feature-structure
+                                               (left-pole-structure cfs)
+                                              )
                                             (feature-structure-unroot
                                               (pole-structure (match-pole cxn dir))
                                               )
                                             )
-               (feature-structure-can-cause (right-pole-structure cfs)
+               (feature-structure-can-cause (root-feature-structure->cxn-feature-structure
+                                               (right-pole-structure cfs)
+                                              )
                                             (feature-structure-unroot
                                               (pole-structure (match-pole cxn dir))
                                               )
@@ -297,7 +327,7 @@
   (loop for cxn-name being the hash-key of (cxn-graph-edges graph)
      do (setf (gethash cxn-name (cxn-graph-edges graph))
               (remove (name construction)
-                      (gethash cxn-name (cxn-graph-edges))
+                      (gethash cxn-name (cxn-graph-edges graph))
                       )
               )
     )
@@ -324,12 +354,15 @@
 
 (defstruct (dependency-graph-actives (:conc-name dep-graph-act-))
   lst
+  init-lst
   graph
   )
 
 (defun create-dependency-graph-actives (cip supplier-data)
-  (make-dependency-graph-actives
-    :lst 
+    (defparameter dga (make-dependency-graph-actives
+    :lst
+        '()
+    :init-lst 
         (make-cxns-actives
           (constructions (construction-inventory cip))
           (direction     cip)
@@ -344,7 +377,9 @@
             ( (eql dir 'production) (dep-graph-production supplier-data) )
             )
           )
-    )
+    ))
+    (setf (dep-graph-act-lst dga) (copy-list (dep-graph-act-init-lst dga)))
+    dga
   )
 
 ;; #########################################################
@@ -354,8 +389,8 @@
 (defmethod supplier-data-remove-cxn ((supplier-data dependency-graph-supplier-data)
                                      (cxn-inventory construction-inventory)
                                      (cxn construction))
-  (dependency-graph-remove-cxn (dep-graph-parsing supplier-data))
-  (dependency-graph-remove-cxn (dep-graph-production supplier-data)))
+  (dependency-graph-remove-cxn (dep-graph-parsing supplier-data)    cxn)
+  (dependency-graph-remove-cxn (dep-graph-production supplier-data) cxn))
 
 (defmethod supplier-data-add-cxn ((supplier-data dependency-graph-supplier-data)
                                      (cxn-inventory construction-inventory)
@@ -372,7 +407,7 @@
 (defmethod create-gen-cxn-supplier ((cip construction-inventory-processor)
                                     (mode (eql :dependency-graph)))
   (let ((supplier-data (supplier-data (construction-inventory cip))))
-    (print  (create-dependency-graph-actives cip supplier-data))))
+    (create-dependency-graph-actives cip supplier-data)))
 
 (defun union-ordered-list (l1 l2)
   "Compute the union of two ordered lists of strings, the result is still ordered"
@@ -387,10 +422,10 @@
 
 (defun merge-into-actives (cxn-name actives)
   "Merge the children of cxn-name into the list of actives constructions"
-  (setf (dep-graph-act-lst actives)
+  (setf (dep-graph-act-init-lst actives)
         (union-ordered-list
           (gethash cxn-name (cxn-graph-edges (dep-graph-act-graph actives)))
-          (dep-graph-act-lst actives))))
+          (dep-graph-act-init-lst actives))))
 
 (defmethod create-cxn-supplier ((node cip-node)
                                 parent
@@ -399,10 +434,12 @@
   (defparameter actives (if parent (cxn-supplier parent) root-actives))
   (defparameter nactives
     (make-dependency-graph-actives
-      :lst  (copy-list (dep-graph-act-lst actives))
+      :lst  '()
+      :init-lst (copy-list (dep-graph-act-init-lst actives))
       :graph (dep-graph-act-graph actives)
       ))
   (when cxn-applied (merge-into-actives (name cxn-applied) nactives))
+  (setf (dep-graph-act-lst nactives) (copy-list (dep-graph-act-init-lst nactives)))
   nactives
   )
 
