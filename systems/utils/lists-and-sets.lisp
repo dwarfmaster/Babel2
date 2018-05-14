@@ -238,6 +238,7 @@ nil."
 	  pushend
           filter ;; this export is only useful for the class 'filter elsewhere, not for the function filter deprecated here
 	  toggle
+          insert-after
 	  mappend
 	  mapunion
 	  listXlist
@@ -257,6 +258,11 @@ nil."
           remove-first
           remove-nth
           cartesian-product))
+
+(defun insert-after (lst index newelt)
+  "Insert an elt into a list after a certain position."
+  (push newelt (cdr (nthcdr index lst)))
+  lst)
 
 (defun remove-first (item sequence &key (test 'equal) test-not)
   (cond
@@ -503,6 +509,20 @@ element for which the sought value satisfies the test"
   (loop for el across array
        collect el))
 
+(export '(sublist-position))
+
+(defun sublist-position (lst1 lst2 &key (n 0) (test #'equal) (key #'identity))
+  "Checks whether a sequence occurs in a second list and returns its starting position."
+  (cond ((or (null lst2)
+             (length> lst1 lst2))
+         nil)
+        ((funcall test lst1 (subseq (mapcar key lst2) 0 (+ (length lst1))))
+         n)
+        (t
+         (sublist-position lst1 (rest lst2) :n (1+ n) :test test :key key))))
+;; (sublist-position '(c d) '(a b c d))
+;; ==> 2
+
 ;; ############################################################################
 ;; list creation utilities:
 ;; ----------------------------------------------------------------------------
@@ -539,9 +559,8 @@ element for which the sought value satisfies the test"
   (full-list :dimensions dimensions :fill-value nil))
 
 (defun randint (&key (start 0) (end (1+ start)) (dimensions nil))
-  "Returns a list in given dimensions, filled with random integers in [start, end];
-   start and end are inclusive. When called without arguments, returns either 0 or 1."
-  (_full-list :dimensions dimensions :fill-value (lambda () (+ start (random (+ 1 (- end start)))))))
+  "Returns a list in given dimensions, filled with random integers in [start, end["
+  (_full-list :dimensions dimensions :fill-value (lambda () (+ start (random (- end start))))))
 
 
    
@@ -959,11 +978,16 @@ element for which the sought value satisfies the test"
 ;; boolean utilities:
 ;; ----------------------------------------------------------------------------
 
-(export '(always))
+(export '(always always-list))
 
 (defun always (&rest elements)
   "Returns true if all elements evaluate to true."
   (loop for element in elements
+        always element))
+
+(defun always-list (sequence)
+  "Returns true if all elements of a sequence evaluate to true"
+  (loop for element in sequence
         always element))
 
 ;; ############################################################################

@@ -164,7 +164,20 @@ return NIL."
                                (json-syntax-error stream esc-error-fmt
                                                   (format nil "\\~C" c)
                                                   repr))))))
-                    (restart-case
+                    (restart-case 
+                        (or (< code char-code-limit)
+                            (error 'no-char-for-code :code code))
+                      (substitute-char (char)
+                        :report "Substitute another char."
+                        :interactive
+                        (lambda ()
+                          (format *query-io* "Char: ")
+                          (list (read-char *query-io*)))
+                        char)
+                      (pass-code ()
+                        :report "Pass the code to char handler."
+                        code))
+                    (restart-case 
                         (or (and (< code char-code-limit) (code-char code))
                             (error 'no-char-for-code :code code))
                       (substitute-char (char)
@@ -471,7 +484,6 @@ double quote, calling string handlers as it goes."
   ;; We can be reasonably sure that nothing but well-formed boolean
   ;; literals get to this point.
   (cdr (assoc token +json-lisp-symbol-tokens+ :test #'string=)))
-
 
 (defvar *accumulator* nil
   "List or vector where elements are stored.")

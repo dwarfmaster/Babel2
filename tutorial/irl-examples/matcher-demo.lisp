@@ -1,5 +1,5 @@
 
-(asdf:operate 'asdf:load-op :irl)
+(ql:quickload :irl)
 
 (in-package :irl)
 

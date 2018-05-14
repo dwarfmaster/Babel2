@@ -14,11 +14,9 @@
 
 (export '(object-run-task object-run-task-started object-run-task-finished))
 
-(define-event object-run-task-started 
-  (object t) (task task))
+(define-event object-run-task-started  (object t) (task task))
 
-(define-event object-run-task-finished
-  (object t) (task task))
+(define-event object-run-task-finished (object t) (task task))
 
 (defgeneric object-run-task (object task &key &allow-other-keys)
   (:documentation "Runs the task for the given object. 

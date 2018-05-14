@@ -22,6 +22,7 @@
 (export '(fcg-set-hierarchy-features
           fcg-construction
           fcg-construction-set
+          hashed-fcg-construction-set
           *fcg-constructions*
           def-fcg-cxn
           def-fcg-constructions
@@ -155,6 +156,10 @@
             (boundaries set-of-predicates)
             (footprints set)))))
 
+(defclass hashed-fcg-construction-set (hashed-construction-set fcg-construction-set)
+  ()
+  (:documentation "Class for hashed FCG construction sets"))
+
 (defmethod constructions ((fcg-construction-set fcg-construction-set) &key &allow-other-keys)
   "return the constructions of an fcg-light-construction-set"
   (slot-value fcg-construction-set 'constructions))
@@ -205,6 +210,24 @@
                              (when search-trash (trash fcg-construction-set))) 
         :key key :test test))
 
+(defmethod find-cxn ((fcg-construction fcg-construction)
+                     (hashed-fcg-construction-set hashed-fcg-construction-set) 
+                     &key (key #'name) (test #'eql))
+
+  (loop with hashes = (hash fcg-construction (get-configuration hashed-fcg-construction-set :hash-mode))
+        for hash in (if (null hashes) (list nil) hashes)
+        for cxn = (find fcg-construction (gethash hash (constructions-hash-table hashed-fcg-construction-set))
+                        :test test :key key)
+        when cxn
+        do (return cxn)))
+
+(defmethod find-cxn ((construction t) (hashed-fcg-construction-set hashed-fcg-construction-set) 
+                     &key (key #'name) (test #'eql) (search-trash nil) (hash-key nil))
+  (find construction
+        (append (gethash hash-key (constructions-hash-table hashed-fcg-construction-set))
+                (when search-trash (trash hashed-fcg-construction-set)))
+        :key key :test test))
+
 (defmethod find-cxn ((construction fcg-construction) (constructions list) 
                      &key (key #'name) (test #'eql))
   (find (funcall key construction) constructions
@@ -216,14 +239,38 @@
 
 (defmethod delete-cxn ((construction fcg-construction) 
                        (construction-set fcg-construction-set)
-                       &key (key #'identity) (test #'eql))
+                       &key (key #'name) (test #'eql))
   "Deletes a construction from the construction inventory."
   (let ((to-delete (find-cxn construction construction-set :test test :key key)))
     (when to-delete
       (setf (constructions construction-set)
             (remove to-delete (constructions construction-set)))
-      (delete-cxn (get-processing-cxn to-delete) (processing-cxn-inventory construction-set))
+      (delete-cxn (get-processing-cxn to-delete) (processing-cxn-inventory construction-set)
+                  :key key :test test)
       to-delete)))
+
+(defmethod delete-cxn ((construction fcg-construction) 
+                       (construction-set hashed-fcg-construction-set)
+                       &key (key #'identity) (test #'eql) (move-to-trash nil))
+  "Deletes a construction from the fcg-construction-set and the
+processing construction inventory. Also removes the hashkey if the
+value has become NIL."
+  (let ((to-delete (find-cxn construction construction-set :test test :key key)))
+
+    (when to-delete
+      (when move-to-trash
+        (push to-delete (trash construction-set)))
+      (loop
+       with hashes = (hash to-delete (get-configuration construction-set :hash-mode))
+       for hash in (if (null hashes) (list nil) hashes)
+       do
+       (setf (gethash hash (constructions-hash-table construction-set))
+                (remove to-delete (gethash hash (constructions-hash-table construction-set))))
+       (delete-cxn (get-processing-cxn to-delete) (processing-cxn-inventory construction-set))
+       (unless (gethash hash (constructions-hash-table construction-set))
+         (remhash hash (constructions-hash-table construction-set))))
+      to-delete)))
+
 
 (defmethod copy-object ((cxn fcg-construction))
   "Copies an fcg-construction object"
@@ -308,6 +355,63 @@ construction on the fly."
     :type (or symbol string) :initarg :visualisation :initform nil :accessor visualisation
     :documentation "slot for determining whether/how you want to visualise the answer")))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Hashed FCG construction set    ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod add-cxn ((fcg-construction fcg-construction)
+                    (fcg-construction-set hashed-fcg-construction-set)
+                    &key
+                    (replace-when-equivalent t)
+                    (equivalent-test #'eql)
+                    (equivalent-key #'name) (processing-cxn-inventory nil)
+                    (recover-from-trash nil)
+                    &allow-other-keys)
+  ;; Set cxn-inventory slot of cxn
+  (setf (cxn-inventory fcg-construction) fcg-construction-set)
+  ;; Add construction to the hash table
+  (if recover-from-trash
+    (let* ((trashed-cxn (find (funcall equivalent-key fcg-construction) (trash fcg-construction-set) 
+                              :key equivalent-key
+                              :test equivalent-test)))
+      (if trashed-cxn
+        (progn
+          (loop for hash in (hash trashed-cxn (get-configuration fcg-construction-set :hash-mode))
+                do (setf (gethash hash (constructions-hash-table fcg-construction-set))
+                         (push trashed-cxn
+                               (gethash hash (constructions-hash-table fcg-construction-set)))))
+          (setf (trash fcg-construction-set) (remove trashed-cxn (trash fcg-construction-set))))
+        (loop for hash in (hash fcg-construction (get-configuration fcg-construction-set :hash-mode))
+              do (setf (gethash hash (constructions-hash-table fcg-construction-set))
+                       (push fcg-construction
+                             (gethash hash (constructions-hash-table fcg-construction-set)))))))
+    (loop
+     with hashes = (hash fcg-construction
+                         (get-configuration fcg-construction-set :hash-mode))
+     for hash in (if (null hashes) (list nil) hashes)
+     do (when replace-when-equivalent
+          (setf (gethash hash (constructions-hash-table fcg-construction-set))
+                (remove (funcall equivalent-key fcg-construction)
+                        (gethash hash (constructions-hash-table fcg-construction-set)) :test equivalent-test :key equivalent-key)))
+     (setf (gethash hash (constructions-hash-table fcg-construction-set))
+           (cons fcg-construction
+                 (gethash hash (constructions-hash-table fcg-construction-set))))))
+  
+  ;; For processing-cxn
+  (add-cxn (fcg-light-cxn->fcg-2-cxn
+              fcg-construction
+              :processing-cxn-inventory
+              (or processing-cxn-inventory
+                  (processing-cxn-inventory fcg-construction-set)))
+             (processing-cxn-inventory fcg-construction-set)
+             :replace-when-equivalent replace-when-equivalent
+             :equivalent-test equivalent-test
+             :equivalent-key equivalent-key
+             :recover-from-trash recover-from-trash
+             :hash-keys (hash fcg-construction
+                         (get-configuration fcg-construction-set :hash-mode)))
+  (values fcg-construction-set fcg-construction))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Interface macro's    ;;
@@ -323,25 +427,41 @@ construction on the fly."
   (let* ((name (eval-when-bound name)) ;; so you can also pass something lik (make-id 'grammar) 
          (creator-fn-name (internal-symb 'make- name '-cxns))
          (cxn-inventory (or (find-key-arg keys-and-defs :cxn-inventory) '*fcg-constructions*))
-         (hierarchy-features (or (find-key-arg keys-and-defs :hierarchy-features) '(subunits))))
+         (hierarchy-features (or (find-key-arg keys-and-defs :hierarchy-features) '(subunits)))
+         (hashed? (find-key-arg keys-and-defs :hashed)))
     `(progn
        (with-disabled-monitor-notifications
 
          ;; Create function that makes grammar
          (defun ,creator-fn-name ()
-           (setf ,cxn-inventory
-                 (make-instance 'fcg-construction-set
-                                :name ',name
-                                :feature-types ',(find-key-arg keys-and-defs :feature-types)
-                                :hierarchy-features ',hierarchy-features
-                                :disable-automatic-footprints ',(find-key-arg keys-and-defs :disable-automatic-footprints)
-                                :diagnostics (loop for diagnostic in ',(find-key-arg keys-and-defs :diagnostics)
-                                                   collect (make-instance diagnostic))
-                                :repairs (loop for repair in ',(find-key-arg keys-and-defs :repairs)
-                                               collect (make-instance repair))
-                                :processing-cxn-inventory (make-instance 'construction-set
-                                                                         :name ',name
-                                                                         :hierarchy-features ',hierarchy-features)))
+
+           (if ,hashed?
+             (setf ,cxn-inventory
+                   (make-instance 'hashed-fcg-construction-set
+                                  :name ',name
+                                  :feature-types ',(find-key-arg keys-and-defs :feature-types)
+                                  :hierarchy-features ',hierarchy-features
+                                  :disable-automatic-footprints ',(find-key-arg keys-and-defs :disable-automatic-footprints)
+                                  :diagnostics (loop for diagnostic in ',(find-key-arg keys-and-defs :diagnostics)
+                                                     collect (make-instance diagnostic))
+                                  :repairs (loop for repair in ',(find-key-arg keys-and-defs :repairs)
+                                                 collect (make-instance repair))
+                                  :processing-cxn-inventory (make-instance 'hashed-construction-set
+                                                                           :name ',name
+                                                                           :hierarchy-features ',hierarchy-features)))
+             (setf ,cxn-inventory
+                   (make-instance 'fcg-construction-set
+                                  :name ',name
+                                  :feature-types ',(find-key-arg keys-and-defs :feature-types)
+                                  :hierarchy-features ',hierarchy-features
+                                  :disable-automatic-footprints ',(find-key-arg keys-and-defs :disable-automatic-footprints)
+                                  :diagnostics (loop for diagnostic in ',(find-key-arg keys-and-defs :diagnostics)
+                                                     collect (make-instance diagnostic))
+                                  :repairs (loop for repair in ',(find-key-arg keys-and-defs :repairs)
+                                                 collect (make-instance repair))
+                                  :processing-cxn-inventory (make-instance 'construction-set
+                                                                           :name ',name
+                                                                           :hierarchy-features ',hierarchy-features))))
          
            ;; Make sure that fcg-construction-set and processing-cxn-inventory share certain objects
            ;; namely, configuration, 
@@ -465,12 +585,21 @@ construction on the fly."
 
 (defun get-processing-cxn (fcg-cxn)
   "returns the processing cxn for any fcg-light-cxn"
-  (find-cxn (name fcg-cxn) (processing-cxn-inventory (cxn-inventory fcg-cxn))))
+  (if (eql (type-of (processing-cxn-inventory (cxn-inventory fcg-cxn)))
+           'hashed-construction-set)
+    (find-cxn (name fcg-cxn) (processing-cxn-inventory (cxn-inventory fcg-cxn))
+              :hash-key (or (attr-val fcg-cxn :string)
+                            (attr-val fcg-cxn :meaning)))
+    (find-cxn (name fcg-cxn) (processing-cxn-inventory (cxn-inventory fcg-cxn)))))
 
 (defun get-original-cxn (processing-cxn)
   "returns the original fcg-cxn for any processing-cxn
    (if it was created using an original fcg-cxn, of course)"
-  (find-cxn (name processing-cxn) (original-cxn-set (cxn-inventory processing-cxn))))
+  (if (eql (type-of (original-cxn-set (cxn-inventory processing-cxn))) 'hashed-fcg-construction-set)
+    (find-cxn (name processing-cxn) (original-cxn-set (cxn-inventory processing-cxn))
+              :hash-key (or (attr-val processing-cxn :string)
+                            (attr-val processing-cxn :meaning)))
+    (find-cxn (name processing-cxn) (original-cxn-set (cxn-inventory processing-cxn)))))
 
 (defun get-processing-cxn-inventory (fcg-cxn)
   "returns the processing cxn-inventory for any fcg-light-cxn"
@@ -505,7 +634,7 @@ construction on the fly."
 (defun check-def-fcg-constructions-keys (keys-and-defs)
   (let ((accepted-keys '(:feature-types :hierarchy-features :fcg-configurations :visualization-configurations
                          :cxn-inventory :disable-automatic-footprints
-                         :diagnostics :repairs)))
+                         :diagnostics :repairs :hashed)))
     (dolist (x keys-and-defs)
       (if (keywordp x)
         (unless (member x accepted-keys)
@@ -657,3 +786,75 @@ construction on the fly."
             (not (boundp sexp)))
     sexp
     (eval sexp)))
+
+;; Some additional interface utilities.
+;; ---------------------------------------------------------------------
+(export '(word-in-dictionary-p
+          fcg-find-cxn fcg-show-cxn
+          hashed-cxn-inventory-p
+          pp-configuration pp-visualization-configuration
+          pprint-configuration pprint-visualization-configuration
+          ))
+
+(defun word-in-dictionary-p (string &optional (cxn-inventory *fcg-constructions*))
+  "Checks whether a string is covered by the grammar. Only for hashed construction-sets."
+  (gethash string (constructions-hash-table cxn-inventory)))
+
+(defun hashed-cxn-inventory-p (cxn-inventory)
+  (slot-exists-p cxn-inventory 'constructions-hash-table))
+
+(defun fcg-find-cxn (name &optional (cxn-inventory *fcg-constructions*) (listify? nil))
+  "If no construction with the same name is found, compatible-named cxns will be returned." 
+  (labels ((find-all-matches (constructions)
+             (find-all (symbol-name name) constructions
+                       :key #'(lambda(cxn)
+                                (symbol-name (name cxn)))
+                       :test #'(lambda(x y)
+                                 (cl-ppcre::scan x y)))))
+    (let ((solutions nil))
+      (if (hashed-cxn-inventory-p cxn-inventory)
+        ;; We iterate through the hash table of constructions.
+        (with-hash-table-iterator (my-iterator (constructions-hash-table cxn-inventory))
+          ;; The iterator always returns three values.
+          (loop (multiple-value-bind (entry-p key value)
+                    (my-iterator)
+                  (declare (ignore key))
+                  ;; Now we add new matches to the solutions
+                  (if entry-p
+                    (let ((the-cxn (find name value :key #'name)))
+                      (if the-cxn
+                        (return (setf solutions (list the-cxn)))
+                        (let ((matching-cxns (find-all-matches value)))
+                          (loop for cxn in matching-cxns
+                                do (pushnew cxn solutions)))))
+                    (return)))))
+        ;; If we have a classic inventory it is simpler.
+        (setf solutions (listify (or (find name (constructions cxn-inventory) :key #'name)
+                                     (find-all-matches (constructions cxn-inventory))))))
+      ;; Now return the result:
+      (if (and (null (rest solutions)) (not listify?))
+        (first solutions)
+        solutions))))
+
+(defun fcg-show-cxn (name &optional (cxn-inventory *fcg-constructions*))
+    (let ((cxns (fcg-find-cxn name cxn-inventory t)))
+      (if (null cxns)
+        (add-element
+         (make-html (format nil "Could not find constructions matching ~a" name)))
+        (progn
+          (add-element (make-html "Found:"))
+          (dolist (cxn cxns)
+            (add-element (make-html cxn)))))))
+
+(defun pprint-configuration (object-with-configuration)
+  (pprint (configuration object-with-configuration)))
+
+(defun pp-configuration (object-with-configuration)
+  (pp (configuration object-with-configuration)))
+
+(defun pprint-visualization-configuration (object-with-visualization-configuration)
+  (pprint (visualization-configuration object-with-visualization-configuration)))
+
+(defun pp-visualization-configuration (object-with-visualization-configuration)
+  (pp (visualization-configuration object-with-visualization-configuration)))
+

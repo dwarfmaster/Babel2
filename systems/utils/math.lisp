@@ -14,7 +14,9 @@
           rad-to-deg
           deg-to-rad
           euclidean
-          iota))
+          iota
+          log-transform-vector
+          sum-list-of-vectors))
 
 (declaim (inline sum))
 (defun sum (values)
@@ -187,6 +189,15 @@ coefficient equal to r**2."
   "Cross product of two vectors."
   (mapcar #'* vector-1 vector-2))
 
+(defun sum-list-of-vectors (list-of-vectors)
+  "Sum a list of vectors."
+  (reduce #'sum-two-vectors list-of-vectors))
+
+(defun sum-two-vectors (vector-1 vector-2)
+  "Cross product of two vectors."
+  (mapcar #'+ vector-1 vector-2))
+
+
 (defun rad-to-deg (rad)
   "Radians to degrees"
   (* 180.0 (/ rad pi)))
@@ -204,6 +215,10 @@ coefficient equal to r**2."
   (loop for n from min below max by step
         collect n))
 
+(defun log-transform-vector (vector)
+  "Take the log of all elements in the vector. Cannot contain zeros!"
+  (mapcar #'log vector)
+  )
 
 ;;;
 ;;; stuff not used

@@ -4,7 +4,7 @@
 ;; File by Paul - 01/2017                                                            ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(asdf:make :type-hierarchies)
+(ql:quickload :type-hierarchies)
 (in-package :type-hierarchies)
 (activate-monitor trace-fcg)
 
@@ -149,3 +149,108 @@
 (formulate '((unique o-1) (cat o-1)))
 (formulate '((unique o-2) (grass o-2)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Using weighted edges ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; The grammar
+
+(def-fcg-constructions-with-type-hierarchy type-hierarchy-weights-example-grammar
+  :feature-types ((args sequence)
+                  (footprints set)
+                  (form set-of-predicates)
+                  (meaning set-of-predicates)
+                  (subunits set))
+  
+  (def-fcg-cxn fries-cxn
+               ((?fries-unit
+                 (syn-cat (meal-type fries))
+                 (args (?x)))
+                <-
+                (?fries-unit
+                 (HASH meaning ((fries ?x)))
+                 --
+                 (HASH form ((string ?fries-unit "fries")))))
+               :description "Lexical unit for the word fries.")
+
+  (def-fcg-cxn pizza-cxn
+               ((?pizza-unit
+                 (syn-cat (meal-type pizza))
+                 (args (?x)))
+                <-
+                (?pizza-unit
+                 (HASH meaning ((pizza ?x)))
+                 --
+                 (HASH form ((string ?pizza-unit "pizza")))))
+               :description "Lexical unit for the word pizza.")
+
+  (def-fcg-cxn real-meal-cxn
+               ((?real-meal-unit
+                 (syn-cat (eat-when? noon))
+                 (args (?x))
+                 (subunits (?meal-unit)))
+                (?meal-unit
+                 (footprints (meal-type-cxn)))
+                <-
+                (?meal-unit
+                 (args (?x))
+                 (syn-cat (meal-type real-meal))
+                 (footprints (NOT meal-type-cxn))
+                 --
+                 (syn-cat (meal-type real-meal))
+                 (footprints (NOT meal-type-cxn))))
+               :description "Lexical unit for the word grass.")
+
+  (def-fcg-cxn snack-cxn
+               ((?snack-unit
+                 (syn-cat (eat-when? evening))
+                 (args (?x))
+                 (subunits (?meal-unit)))
+                (?meal-unit
+                 (footprints (meal-type-cxn)))
+                <-
+                (?meal-unit
+                 (args (?x))
+                 (syn-cat (meal-type snack))
+                 (footprints (NOT meal-type-cxn))
+                 --
+                 (syn-cat (meal-type snack))
+                 (footprints (NOT meal-type-cxn))))
+               :description "Lexical unit for the word grass.")  
+
+  )
+
+;; Setting the type hierarchy
+
+(let ((th (get-type-hierarchy *fcg-constructions*)))
+  (add-categories '(snack real-meal fries pizza meal) th)
+  (add-link 'fries 'snack th :weight 0.7)
+  (add-link 'fries 'real-meal th :weight 0.3)
+  (add-link 'pizza 'real-meal th :weight 0.5)
+  (add-link 'pizza 'snack th :weight 0.5)
+  (add-link 'snack 'meal th :weight 99)
+  (add-link 'real-meal 'meal th :weight 100)
+  th)
+
+;; Visualizing the type hierarchy with weights
+
+(add-element (make-html (get-type-hierarchy *fcg-constructions*) :weights? t))
+
+;; Changing the weights on the edges
+
+(link-weight  'fries 'snack (get-type-hierarchy *fcg-constructions*))
+(set-link-weight 'fries 'snack (get-type-hierarchy *fcg-constructions*)  0.7)
+(incf-link-weight 'fries 'snack (get-type-hierarchy *fcg-constructions*) 0.1)
+(decf-link-weight 'fries 'snack (get-type-hierarchy *fcg-constructions*) 0.1)
+
+;; Paths and distances
+(directed-path-p 'fries 'meal (get-type-hierarchy *fcg-constructions*))
+(directed-distance  'fries 'real-meal (get-type-hierarchy *fcg-constructions*))
+
+;; Comprehending and formulating
+
+(comprehend-all "pizza")
+(comprehend-all "fries")
+
+(formulate-all '((pizza obj)))
+(formulate-all '((fries obj)))

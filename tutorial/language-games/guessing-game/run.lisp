@@ -1,5 +1,5 @@
 
-(asdf:operate 'asdf:load-op 'guessing-game)
+(ql:quickload 'guessing-game)
 
 (in-package :guessing-game)
 

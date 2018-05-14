@@ -1,71 +1,73 @@
 (in-package :robot-interface)
 
-(export '(sit stand crouch current-posture look-up-down look-left-right say-yes say-no point
+(export '(sit stand stand-init stand-zero crouch current-posture look-up-down look-left-right say-yes say-no point
               point-and-speak say-yes-and-speak say-no-and-speak))
 
-(defmethod sit ((robot robot) &key)
-  " Go to a sitting posture "
-  (go-to-posture robot "Sit"))
+(defun sit (robot)
+  "Go to a sitting posture"
+  #+nao (nao-go-posture robot :sit))
 
-(defmethod stand ((robot robot) &key)
-  (go-to-posture robot "Stand"))
+(defun stand (robot)
+  "Go to a standing posture"
+  #+nao (nao-go-posture robot :stand))
 
-(defmethod stand-init ((robot robot) &key)
-  " Go to a standing posture "
-  (go-to-posture robot "StandInit"))
+(defun stand-init (robot)
+  "Stand with more balance"
+  #+nao (nao-go-posture robot :stand-init))
 
-(defmethod stand-zero ((robot robot) &key)
-  (go-to-posture robot "StandZero"))
+(defun stand-zero (robot)
+  "Stand with stretched arms"
+  #+nao (nao-go-posture robot :stand-zero))
 
-(defmethod crouch ((robot robot) &key)
-  " Go to a crouching posture "
-  (go-to-posture robot "Crouch"))
+(defun crouch (robot)
+  "Go to a crouching posture"
+  #+nao (nao-go-posture robot :crouch))
 
-(defmethod current-posture ((robot robot) &key)
-  " Get the current posture "
-  (get-posture robot))
+(defun current-posture (robot)
+  "Return the current posture"
+  #+nao (nao-get-posture robot))
 
-(defmethod look-up-down ((robot robot) value &key (unit :degrees))
-  " Move the head up or down. Default unit: degrees. Radians also possible. "
-  (cond ((eq unit :degrees)
-         (set-head-joint robot "HeadPitch" (deg-to-rad value)))
-        ((eq unit :radians)
-         (set-head-joint robot "HeadPitch" value))
-        (t
-         (error (format nil "~a is not a valid unit" unit)))))
+(defun look-up-down (robot value &key (unit :degrees))
+  "Move the head up or down. Default unit: degrees. Radians also possible."
+  #+nao (cond ((eq unit :degrees)
+               (nao-set-joint robot :head :head-pitch :value (deg-to-rad value)))
+              ((eq unit :radians)
+               (nao-set-joint robot :head :head-pitch :value value))
+              (t
+               (error (format nil "~a is not a valid unit" unit)))))
 
-(defmethod look-left-right ((robot robot) value &key (unit :degrees))
+(defun look-left-right (robot value &key (unit :degrees))
   " Move the head left or down. Default unit: degrees. Radians also possible. "
-  (cond ((eq unit :degrees)
-         (set-head-joint robot "HeadYaw" (deg-to-rad value)))
-        ((eq unit :radians)
-         (set-head-joint robot "HeadYaw" value))
-        (t
-         (error (format nil "~a is not a valid unit" unit)))))
+  #+nao (cond ((eq unit :degrees)
+              (nao-set-joint robot :head :head-yaw :value (deg-to-rad value)))
+             ((eq unit :radians)
+              (nao-set-joint robot :head :head-yaw :value value))
+             (t
+              (error (format nil "~a is not a valid unit" unit)))))
 
-(defmethod say-yes ((robot robot) &key)
+(defun say-yes (robot)
   " Say yes using the robot's head "
-  (head-say robot "yes"))
+  #+nao (nao-head-say robot :yes))
 
-(defmethod say-no ((robot robot) &key)
+(defun say-no (robot)
   " Say no using the robot's head "
-  (head-say robot "no"))
+  #+nao (nao-head-say robot :no))
 
-(defmethod point ((robot robot) y &key)
+(defun point (robot left-or-right)
   "Raise left or right arm."
-  (if (> y 0.0)
-    (raise-left-arm robot)
-    (raise-right-arm robot)))
+  #+nao (if (> left-or-right 0.0)
+          (nao-raise-arm robot :left)
+          (nao-raise-arm robot :right)))
 
 ;; These methods are hacked together
-(defmethod point-and-speak ((robot robot) y speech &key)
+(defun point-and-speak (robot left-or-right speech)
   "Raise arm and speak at the same time"
-  (if (> y 0.0)
-    (raise-left-and-speak robot speech)
-    (raise-right-and-speak robot speech)))
+  #+nao (if (> left-or-right 0.0)
+          (raise-left-and-speak robot speech)
+          (raise-right-and-speak robot speech)))
 
-(defmethod say-yes-and-speak ((robot robot) speech &key)
-  (head-say-and-speak robot "yes" speech))
+(defun say-yes-and-speak (robot speech)
+  #+nao (head-say-and-speak robot "yes" speech))
 
-(defmethod say-no-and-speak ((robot robot) speech &key)
-  (head-say-and-speak robot "no" speech))
+(defun say-no-and-speak (robot speech)
+  #+nao (head-say-and-speak robot "no" speech))

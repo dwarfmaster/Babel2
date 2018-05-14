@@ -421,8 +421,9 @@ branching node."
     (reverse result)))
 
 (defun render-in-root-mode (syn)
-  "Currently tailored for the English grammar."
+  "Default render mode in FCG."  
   (let (sequence strings meets precedes first-unit)
+    
     (dolist (unit syn)
       (let ((form (unit-feature-value unit 'form)))
         (dolist (value form)
@@ -434,6 +435,7 @@ branching node."
              ((eql f 'sequence) (setf first-unit (second value)))
              (t
               nil))))))
+    
     (setf sequence (sort-order-constraints meets))
     (setf sequence (make-chains sequence))
     (when first-unit
@@ -480,7 +482,7 @@ branching node."
 
 (export '(order-constraints-by-predicate order-units-locally reduce-scoped-constraints
                                          expand-non-terminal retain-only-terminals
-                                         find-scope get-scope-from-form-constraint fields))
+                                         find-scope get-scope-from-form-constraint fields adjacent))
 
 (defun order-constraints-by-predicate (constraints predicates &optional (result))
   "Groups the constraints in the same order as they appear in the predicates argument."
@@ -593,6 +595,100 @@ branching node."
         (setf lst (enforce-constraint lst nil))))
     (substitute-or-cons (cons parent lst) scoped-constraints)))
 
+(defun find-child-sublist (elt lst &key (test #'eql))
+  "Recursively go through nested lists to find an element, and the return the nested list where it can be found."
+  (cond ((atom lst) nil)
+        ((member elt lst :test test) lst)
+        (t
+         (or (find-child-sublist elt (first lst) :test test)
+             (find-child-sublist elt (rest lst) :test test)))))
+;; (find-child-sublist 'a '((((((((a)))))))))
+;; (find-child-sublist 'a '((((((((b a)))))))))
+
+(defun singleton-p (lst)
+  (and lst (null (rest lst))))
+
+(defun enforce-adjacency-help (first-entry second-entry child1 child2)
+  "Checks which adjacency is allowed and chooses that one."
+  (let ((flat-first-entry (flatten first-entry))
+        (flat-second-entry (flatten second-entry)))
+    (cond
+     ;; First handle the cases where one of the two is a singleton.
+     ((and (singleton-p first-entry) (equal child2 (first flat-second-entry)))
+      (list (cons first-entry second-entry)))
+     ((and (singleton-p first-entry) (equal child2 (last-elt flat-second-entry)))
+      (list (append second-entry (list first-entry))))
+     ((and (singleton-p second-entry) (equal child1 (first flat-first-entry)))
+      (list (cons second-entry first-entry)))
+     ((and (singleton-p second-entry) (equal child1 (last-elt flat-first-entry)))
+      (list (append first-entry (list second-entry))))
+     ;; This case should not happen, so we'll give a warning and a bad result.
+     ((or (singleton-p first-entry) (singleton-p second-entry))
+      (format t "Warning: you have a conflicting adjacency constraint while rendering.")
+      `((,@(if (singleton-p first-entry) (list first-entry) first-entry)
+         ,@(if (singleton-p second-entry) (list second-entry) second-entry))))
+     ;; Now we check the possibilities if both are nested.
+     ((or (equal child1 (first flat-first-entry))
+          (equal child2 (last flat-second-entry)))
+      `((,@second-entry ,@first-entry)))
+     ((or (equal child1 (last-elt flat-first-entry))
+          (equal child2 (first flat-second-entry)))
+      `((,@first-entry ,@second-entry)))
+     (t ;; This case should never happen so we'll print a warning.
+        (format t "Warning: you have a conflicting adjacency constraint while rendering.")
+        `((,@first-entry ,@second-entry))))))
+
+(defmethod order-units-locally (constraint scoped-constraints (predicate (eql 'adjacent)))
+  ;; The adjacent constraint should be applied AFTER the more specific ordering constraints
+  ;; meets, precedes, fields, first and last.
+  (setf *scoped-constraints* scoped-constraints)
+  (let* ((parent (find-scope constraint predicate))
+         (lst (rest (assoc parent scoped-constraints)))
+         (child1 (list (second constraint)))
+         (child2 (list (third constraint)))
+         (first-entry (or (find child1 lst :test #'equal) ;; Simple case...
+                          (find-child-sublist child1 lst :test #'equal) ;; Meets-constraints involved...
+                          child1)) ;; Maybe no constraints exist yet for this unit.
+         (second-entry (or (find child2 lst :test #'equal) ;; Simple case...
+                           (find-child-sublist child2 lst :test #'equal) ;; Meets-constraints involved.
+                           child2))) ;; Maybe no constraints exist yet for this unit.
+    (if (none first-entry second-entry) ;; We have a completely new constraint so we can skip the whole search.
+      (push `((,(first random-order))(,(second random-order))) lst)
+      ;; But probably we already have previous information.
+      ;; At this point, the scoped constraints are already ordered by meets, precedes,
+      ;; and other constraints. It is therefore important to respect that order.
+      ;;      Precedes constraints are currently handled at a one-level depth. That is,
+      ;; the constraint (precedes a b scope) would by now be translated into the following
+      ;; structure: ((scope (a) (b))). Meets constraints, on the other hand, lead to nested
+      ;; lists. So if there is also a (meets b c scope), then we would have the following:
+      ;; ((scope (a) ((b) (c)))). The order in a nested list should never change, whereas we
+      ;; assume here that the order on the first level (the precedes-level) can still be changed.
+      ;; It is therefore up to the grammar engineer to worry about conflicts.
+      ;;     For example, the constraint (adjacent a b scope) is acceptable, because that should lead to:
+      ;; ((scope ((a) (b) (c)))). The constraint (adjacent a c scope), however, would be unacceptable
+      ;; because it would lead to ((scope ((b) (c) (a)))), which violates the precedes constraint.
+      ;; ------------------------------------------------------------------------------------------------
+      (labels ((enforce-adjacency (list result)
+                 (cond ((null list) ;; This case should never happen, but we'll include it for safety.
+                        (reverse result))
+                       ((equal first-entry (first list)) ;; We come across the first-entry first.
+                        (append (reverse result)
+                                (if (and (singleton-p first-entry) (singleton-p second-entry)) ;; Simple case.
+                                  (list (list first-entry second-entry))
+                                  ;; If either of the entries is nested, we call a helper function.
+                                  (enforce-adjacency-help first-entry second-entry (first child1) (first child2)))
+                                (remove second-entry (rest list) :test #'equal)))
+                       ((equal second-entry (first list)) ;; We come across the second-entry first.
+                        (append (reverse result)
+                                (if (and (singleton-p first-entry) (singleton-p second-entry))
+                                  (list (list second-entry first-entry))
+                                  (enforce-adjacency-help second-entry first-entry (first child2) (first child1)))
+                                (remove first-entry (rest list) :test #'equal)))
+                       (t
+                        (enforce-adjacency (rest list) (cons (list (first list)) result))))))
+        (setf lst (enforce-adjacency lst nil))))
+    (substitute-or-cons (cons parent lst) scoped-constraints)))
+
 (defun deep-find-atom (atom lst &key (test #'eql))
   "Recursively looks for an atom in a list, and returns it if found."
   (cond
@@ -660,7 +756,6 @@ branching node."
              (setf result (append (expand-non-terminal symbol struct hierarchy-features) result)))))
     (reverse result)))
 
-
 ;;; Note by Remi: If the last element is the convention, we can make this a normal function again.
 (defgeneric find-scope (constraint constraint-name))
 
@@ -684,20 +779,13 @@ branching node."
   ;; (fields field-1 ... field-n scope)
   (last-elt constraint))
 
+(defmethod find-scope (constraint (constraint-name (eql 'adjacent)))
+  ;; (adjacent unit-1 unit-2 scope)
+  (last-elt constraint))
+
 (defmethod find-scope (constraint (constraint-name t))
-  (cond
-   ((string= constraint-name 'meets)
-    (find-scope constraint 'meets))
-   ((string= constraint-name 'precedes)
-    (find-scope constraint 'precedes))
-   ((string= constraint-name 'first)
-    (find-scope constraint 'first))
-   ((string= constraint-name 'last)
-    (find-scope constraint 'last))
-   (t
-    ;;(progn
-    ;;  (warn "No method FIND-SCOPE for a ~a-constraint, taking LAST-ELT." constraint-name)
-    (last-elt constraint))))
+  ;; By default, take the last element.
+  (last-elt constraint))
 
 (defun get-scope-from-form-constraint (constraint)
   "Calls the generic function find-scope."
@@ -723,16 +811,46 @@ branching node."
         (setf scoped-constraints
               (order-units-locally constraint scoped-constraints form-predicate)))))))
 
+(defgeneric filter-form-constraint (form-constraints predicate))
+
+(defmethod filter-form-constraint ((form-constraints list) (predicate (eql 'adjacent)))
+  (let (result)
+    (dolist (constraint form-constraints)
+      (unless (and (eql predicate (first constraint))
+                   (loop for x in result
+                         when (and (eql (first x) predicate)
+                                                          (member (second constraint) x)
+                                                          (member (third constraint) x)
+                                                          (eql (last-elt x) (last-elt constraint)))
+                         return t))
+        (push constraint result)))
+    (reverse result)))
+;;(render english-grammar::*test-units* :render-with-scope :node english-grammar::*testnode*)
+
+(defmethod filter-form-constraint (form-constraints (predicate t))
+  ;; By default we do not need to filter.
+  form-constraints)
+
+(defun filter-form-constraints (form-constraints form-predicates)
+  "Some form constraints need to be filtered out."
+  (loop for form-predicate in form-predicates
+        do (setf form-constraints (filter-form-constraint form-constraints form-predicate))
+        finally (return form-constraints)))
+
 ;;; The actual render methods.
 ;;; --------------------------------------------------------------------
 (defmethod render ((struct list)  (mode (eql :render-with-scope)) &key node &allow-other-keys)
   ;; Preamble: gather some data from the units.
-  (let* ((form-predicates (get-updating-references node)) ;; By default meets and precedes
-         (form-constraints ;; Order the constraints by predicate.
-                           (order-constraints-by-predicate 
-                            ;; To ensure random results in case of underspecification.
-                            (shuffle (fcg-extract-selected-form-constraints struct form-predicates)) ;; Might need filtering...
-                            form-predicates))
+  (let* ((form-predicates (get-updating-references node))
+         (form-constraints
+          ;; Filter the constraints if necessary
+          (filter-form-constraints
+           ;; Order the constraints by predicate.
+           (order-constraints-by-predicate 
+            ;; To ensure random results in case of underspecification.
+            (shuffle (fcg-extract-selected-form-constraints struct form-predicates))
+            form-predicates)
+           form-predicates))
          (terminals-and-strings (mapcar #'rest (fcg-extract-selected-form-constraints struct '(string))))
          (terminals (mapcar #'first terminals-and-strings))
          (non-terminals nil)
@@ -745,7 +863,7 @@ branching node."
           (push constraint unscoped-constraints)
           (setf scoped-constraints
                 (order-units-locally constraint scoped-constraints form-predicate)))))
-    
+
     ;; All first symbols in the scoped constraints are non-terminals, unless they are associated with a string.
     (setf non-terminals (loop for elt in scoped-constraints
                               unless (find (first elt) terminals :test #'string=)
@@ -756,10 +874,10 @@ branching node."
     
     ;; Try to build (partial) trees and flatten these to their terminal symbols (i.e. unit -> "string").
     ;; I am not very comfortable with the remove-duplicate-units yet, but problems with it will pop up in testing.
-    (setf scoped-constraints (remove-duplicate-units (loop for tree in (reduce-scoped-constraints scoped-constraints)
-                                                           append (retain-only-terminals tree non-terminals terminals struct
-                                                                                         (get-configuration node :hierarchy-features)))))
-    
+    (setf scoped-constraints
+          (remove-duplicate-units (loop for tree in (reduce-scoped-constraints scoped-constraints)
+                                        append (retain-only-terminals tree non-terminals terminals struct
+                                                                      (get-configuration node :hierarchy-features)))))
     (let ((utterance (shuffle (append (set-difference terminals scoped-constraints) (list scoped-constraints)))))
       (remove nil (loop for unit in (flatten utterance)
             collect (second (assoc unit terminals-and-strings)))))))

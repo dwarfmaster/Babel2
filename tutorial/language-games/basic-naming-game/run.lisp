@@ -1,5 +1,5 @@
 ;; Load all the code necessary to run basic Naming Games
-(asdf:operate 'asdf:load-op 'basic-naming-game)
+(ql:quickload 'basic-naming-game)
 
 (in-package :naming-game)
 

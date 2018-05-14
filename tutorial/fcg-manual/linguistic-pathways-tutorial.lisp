@@ -16,7 +16,7 @@
 ;; Evaluate the following line to load the FCG package and to start
 ;; the web-interface. Then, open a web browser (preferrably Safari or
 ;; Firefox) at http://localhost:8000.
-(asdf:make :fcg)
+(ql:quickload :fcg)
 
 ;; Now evaluate the following two lines to set the package right and
 ;; activate the trace-fcg monitor

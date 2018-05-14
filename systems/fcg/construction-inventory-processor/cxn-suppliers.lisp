@@ -262,6 +262,9 @@
                      (node cip-node))
   (pop (remaining-constructions cxn-supplier)))
 
+
+#|
+
 (defmethod hash ((construction construction)
                  (mode (eql :hash-word-entity-root))
                  &key &allow-other-keys)
@@ -287,6 +290,8 @@
                              (fourth m))
                       (fourth m)
                       (first m))))))
+
+|#
 
 (defmethod hash ((construction construction)
                  (mode (eql :hash-word-entity-root-one-pole))

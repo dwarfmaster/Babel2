@@ -6,7 +6,7 @@
 ;;;; 1. Load and set up FCG (including FCG 2)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(asdf:operate 'asdf:load-op :fcg)
+(ql:quickload :fcg)
 (in-package :fcg)
 (activate-monitor trace-fcg)
 

@@ -251,25 +251,27 @@
     (add-cxn cxn-1 cxn-set)
     (add-cxn cxn-2 cxn-set)
     (test-assert (and (configuration cxn-set)
-                      (= (length (constructions cxn-set)) 2)))
+                      (= (size cxn-set) 1)
+                      (= (length (gethash nil (constructions-hash-table cxn-set))) 2)))
     (setf copied-cxn-set (copy-object cxn-set))
-    (test-assert (= (length (constructions copied-cxn-set)) 2))
+    (test-assert (= (length (gethash nil (constructions-hash-table copied-cxn-set))) 2))
     ;; Slightly less trivial tests
     (add-cxn cxn-3 cxn-set)
-    (test-assert (and (= (length (constructions cxn-set)) 3)
-                      (= (length (constructions copied-cxn-set)) 2)))
+    (test-assert (and (= (length (gethash nil (constructions-hash-table cxn-set))) 3)
+                      (= (length (gethash nil (constructions-hash-table copied-cxn-set))) 2)))
     (add-cxn cxn-with-same-name-as-1 cxn-set) ;; length should not increase
-    (test-assert (and (= (length (constructions cxn-set)) 3)
+    (test-assert (and (= (length (gethash nil (constructions-hash-table cxn-set))) 3)
                       (find-cxn cxn-with-same-name-as-1 cxn-set)))
     (delete-cxn 'cxn-5 cxn-set :key #'name)
     (delete-cxn cxn-2 cxn-set)
-    (test-assert (= (length (constructions cxn-set)) 2))
+    (test-assert (= (length (gethash nil (constructions-hash-table cxn-set))) 2))
     (test-assert (and (find-cxn cxn-3 cxn-set :test 'eq)
                       (find-cxn 'cxn-3 cxn-set)))
     (add-cxn (copy-object cxn-3) cxn-set :equivalent-key #'identity)
-    (test-assert (= (length (find-all 'cxn-3 (constructions cxn-set) :key #'name)) 2))
+    (test-assert (= (length (find-all 'cxn-3 (gethash nil (constructions-hash-table cxn-set))
+                                      :key #'name)) 2))
     (clear copied-cxn-set)
-    (test-assert (= 0 (length (constructions copied-cxn-set))))
+    (test-assert (= 0 (length (gethash nil (constructions-hash-table copied-cxn-set)))))
      
     ;; Tests for trash
     (setf (trash cxn-set) (list cxn-for-trash-1))
@@ -281,13 +283,17 @@
     (add-cxn cxn-with-same-name-as-6 cxn-set :recover-from-trash t)
     (test-assert (= (length (trash cxn-set)) 1))
     (test-assert (find-cxn cxn-with-same-name-as-6 cxn-set))
-    (delete-cxn cxn-1 cxn-set :move-to-trash t)
-    (test-assert (= (length (trash cxn-set)) 1))
-    (test-assert (not (find cxn-1 (constructions cxn-set))))
+    (delete-cxn cxn-1 cxn-set :move-to-trash t :key #'name)
+    (test-assert (= (length (trash cxn-set)) 2))
+    (test-assert (not (find-cxn cxn-1 cxn-set)))
     (clear copied-cxn-set :include-trash t)
     (test-assert (= (length (trash copied-cxn-set)) 0))
-    (test-assert (= (length (constructions copied-cxn-set)) 0)))
-  
+    (test-assert (= (size copied-cxn-set) 0)))
+)
+
+;;TO DO
+(defun test-hashed-fcg-construction-set ()
+
   ;;;; ########################################################
   ;;;; test hash functionality
   
@@ -299,34 +305,35 @@
                         :attributes '((:string . "string")
                                       (:meaning . test-entity))
                         :left-pole '((root
+                                      (form ((string ?string "string")))
+                                      (footprints (==0 cxn-1))
                                       (meaning ((bind test-type ?test test-entity)))))
-                        :right-pole '((root
-                                       (form ((string ?string "string")))
-                                       (footprints (==0 cxn-1))))))
-         (hs (hash construction :hash-word-entity-root)))
+                        :right-pole '((root))))
+         (hs (hash construction :hash-word-entity-root-one-pole)))
 
     (test-equal 2 (length hs))
     (test-equal (first hs) "string")
     (test-equal (second hs) 'test-entity))
-  
   ;; test hash cip-node production (irl meaning)
   (let* ((cip (make-instance
                'construction-inventory-processor
                :construction-inventory (make-instance 'construction-set)
                :direction '->
                :initial-cfs (create-initial-structure '((bind test-type ?test test-entity))
-                                                      :root-mode)))
-         (hs (hash (top-node cip) :hash-word-entity-root)))
+                                                      :one-pole-mode)))
+         (hs (hash (top-node cip) :hash-word-entity-root-one-pole)))
     (test-equal 1 (length hs))
     (test-equal (first hs) 'test-entity))
+
+
   ;; test hash cip-node production (non irl-meaning)
   (let* ((cip (make-instance
                'construction-inventory-processor
                :construction-inventory (make-instance 'construction-set)
                :direction '->
                :initial-cfs (create-initial-structure '((test ?test-1 ?test-2 tast))
-                                                      :root-mode)))
-         (hs (hash (top-node cip) :hash-word-entity-root)))
+                                                      :one-pole-mode)))
+         (hs (hash (top-node cip) :hash-word-entity-root-one-pole)))
     (test-equal 1 (length hs))
     (test-equal (first hs) 'test))
   ;; test hash cip-node production (2 meanings)
@@ -336,13 +343,14 @@
                :direction '->
                :initial-cfs (create-initial-structure '((bind test-type ?test test-entity)
                                                         (bind test-type2 ?test test-entity2))
-                                                      :root-mode)))
-         (hs (hash (top-node cip) :hash-word-entity-root)))
+                                                      :one-pole-mode)))
+         (hs (hash (top-node cip) :hash-word-entity-root-one-pole)))
     (test-equal 2 (length hs))
     (test-assert (member 'test-entity
                          hs :test #'equalp))
     (test-assert (member 'test-entity2
                          hs :test #'equalp)))
+
   ;; test hash cip-node production (2 meanings, non-irl)
   (let* ((cip (make-instance
                'construction-inventory-processor
@@ -350,13 +358,15 @@
                :direction '->
                :initial-cfs (create-initial-structure '((test1 ?test-1 ?test-2 tast-1)
                                                         (test2 ?test-3 ?test-2 tast-2))
-                                                      :root-mode)))
-         (hs (hash (top-node cip) :hash-word-entity-root)))
+                                                      :one-pole-mode)))
+         (hs (hash (top-node cip) :hash-word-entity-root-one-pole)))
     (test-equal 2 (length hs))
     (test-assert (member 'test1
                          hs :test #'equalp))
     (test-assert (member 'test2
                          hs :test #'equalp)))
+
+
   ;; test hash cip-node parsing
   (let* ((cip (make-instance
                'construction-inventory-processor
@@ -365,8 +375,8 @@
                :initial-cfs (handler-bind ((warning #'(lambda (c)
                                                         (declare (ignore c))
                                                         (muffle-warning))))
-                              (de-render '("string") :de-render-in-root-mode))))
-         (hs (hash (top-node cip) :hash-word-entity-root)))
+                              (de-render '("string") :DE-RENDER-STRING-MEETS-PRECEDES))))
+         (hs (hash (top-node cip) :hash-word-entity-root-one-pole)))
     (test-equal 1 (length hs))
     (test-equal (first hs) "string"))
   ;; test hash cip-node parsing (2 strings)
@@ -377,12 +387,12 @@
                :initial-cfs (handler-bind ((warning #'(lambda (c)
                                                         (declare (ignore c))
                                                         (muffle-warning))))
-                              (de-render '("string" "king") :de-render-in-root-mode))))
-         (hs (hash (top-node cip) :hash-word-entity-root)))
+                              (de-render '("string" "king") :DE-RENDER-STRING-MEETS-PRECEDES))))
+         (hs (hash (top-node cip) :hash-word-entity-root-one-pole)))
     (test-equal 2 (length hs))
     (test-assert (member "string" hs :test #'equalp))
     (test-assert (member "king" hs :test #'equalp)))
-    
+
   ;; test add/delete/clear with hashes
   (let ((constructions
          (loop
@@ -403,7 +413,6 @@
     ;; add-cxn
     (loop for cxn in constructions
           do (add-cxn cxn cxn-hash-table))
-    (test-equal 10 (length (constructions cxn-hash-table)))
     (test-equal 20 (hash-table-count (constructions-hash-table
                                       cxn-hash-table)))
     (test-equal 10 (length
@@ -413,7 +422,6 @@
                            append value))))
     ;; delete-cxn
     (delete-cxn (first constructions) cxn-hash-table)
-    (test-equal 9 (length (constructions cxn-hash-table)))
     (test-equal 9 (length
                    (remove-duplicates
                     (loop for value being the hash-values of
@@ -421,12 +429,12 @@
                           append value))))
     ;; clear
     (clear cxn-hash-table)
-    (test-equal 0 (length (constructions cxn-hash-table)))
     (test-equal 0 (length
                    (remove-duplicates
                     (loop for value being the hash-values of
                           (constructions-hash-table cxn-hash-table)
                           append value)))))
+
     
   ;; test cxn-supplier-with-hashed-simple-queue
   (let* ((entities (loop for i from 1 to 10
@@ -487,7 +495,8 @@
                       (bind test-type ?test ,(second entities)))
                     cxn-hash-table)))
       (test-equal 3 (length strings))
-      (test-equal 2 (length (remove-duplicates strings :test #'equalp))))
+      (test-equal 2 (length (remove-duplicates strings :test #'equalp)))))
+
 
     ;; test nil bucket
     (let ((nil-hash-cxn (make-instance
@@ -538,7 +547,7 @@
                         (bind test-type ?test other))
                       cxn-hash-table)))
         (test-equal 4 (length strings))
-        (test-equal 3 (length (remove-duplicates strings :test #'equalp))))))
+        (test-equal 3 (length (remove-duplicates strings :test #'equalp)))))
 
   ;; test cxn-supplier-with-hashed-simple-queue (non-irl meanings)
   (let* ((predicates (loop for i from 1 to 10
@@ -656,9 +665,9 @@
         (test-equal 4 (length strings))
         (test-equal 3 (length (remove-duplicates strings :test #'equalp)))))))
 
-;; (test-hashed-construction-set)
+;; (test-hashed-FCG-construction-set)
 
-(deftest test-cxn-supplier-hashed-ordered-label ()
+(defun test-cxn-supplier-hashed-ordered-label ()
   ;; test cxn-supplier-with-hashed-simple-queue
   (let* ((entities (loop for i from 1 to 10
                          for string = (format nil "test-~d" i)
@@ -696,7 +705,7 @@
                        :initial-cfs (create-initial-structure
                                      (loop for entity in entities
                                            collect `(bind test-type ?test ,entity))
-                                     :root-mode)))
+                                     :one-pole-mode)))
          (top-node-produce (top-node cip-produce))
          (cip-parse (make-instance
                      'construction-inventory-processor
@@ -707,7 +716,7 @@
                                                               (muffle-warning))))
                                     (de-render (loop for i from 1 to 10
                                                      collect (format nil "test-~d" i))
-                                               :de-render-in-root-mode))))
+                                               :DE-RENDER-STRING-MEETS-PRECEDES))))
          (top-node-parse (top-node cip-parse))) 
 
     ;; add all constructions
@@ -733,8 +742,7 @@
           for cxn in constructions
           for cxns = (all-constructions-of-label-hashed top-node-parse i)
           do (test-equal 1 (length cxns))
-          do (test-equal (first cxns) cxn)) 
-
+          do (test-equal (first cxns) cxn)))
     ;; test parsing simple
     (let ((meaning
            (handler-bind ((warning #'(lambda (c)
@@ -807,7 +815,7 @@
                                         ?form
                                         (footprints other))))))
       (test-assert (null (gethash nil (constructions-hash-table cxn-hash-table))))
-      (test-equal nil (hash nil-hash-cxn :hash-word-entity-root))
+      (test-equal nil (hash nil-hash-cxn :hash-word-entity-root-one-pole))
       (add-cxn nil-hash-cxn cxn-hash-table)
       (test-equal 1 (length (gethash nil (constructions-hash-table cxn-hash-table))))
       ;; test parsing simple (fail)
@@ -852,7 +860,7 @@
                         (bind test-type ?test other))
                       cxn-hash-table)))
         (test-equal 4 (length strings))
-        (test-equal 3 (length (remove-duplicates strings :test #'equalp)))))))
+        (test-equal 3 (length (remove-duplicates strings :test #'equalp))))))
 
 ;; (test-cxn-supplier-hashed-ordered-label)
    

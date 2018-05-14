@@ -6,15 +6,19 @@
 
 (in-package :nlp-tools)
 
-(export '(get-penelope-noun-chunks
+(export '(get-penelope-lemmas
+          get-penelope-noun-chunks
           get-penelope-named-entities
           get-penelope-pos-tags
           run-penelope-dependency-parser
+          get-penelope-dependency-analysis
           get-penelope-tokens
           get-penelope-sentence-tokens
           get-word-similarity
           get-word-embeddings
-          curl-json))
+          curl-json
+          guardian-data
+          glove))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -139,7 +143,9 @@ of strings, each list corresponding to a named entity."
 
 ;;(run-penelope-dependency-parser "April is the fourth month of the year")
 
-;; TODO Add get function once we know what to use it for.
+(defun get-penelope-dependency-analysis (utterance)
+  "Returns a dependency tree analysis."
+  (rest (assoc :tree (first (run-penelope-dependency-parser utterance)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;Tokenization
@@ -155,9 +161,9 @@ of strings, each list corresponding to a named entity."
 
 ;;(run-penelope-tokenizer "Paul kicked the ball. Mary caught it.")
 
-(defun get-penelope-tokens (sentence)
+(defun get-penelope-tokens (sentence &key (model "en"))
   "Returns tokens."
-  (run-penelope-tokenizer sentence))
+  (run-penelope-tokenizer sentence :model model))
 
 ;;(get-penelope-tokens "Paul kicked the ball. Mary caught it.")
 
@@ -169,54 +175,133 @@ of strings, each list corresponding to a named entity."
          (curl-json "https://www.fcg-net.org/penelope/nlp/stok" (encode-json-to-string-for-shell `((:text . ,sentences) (:model . ,model))))))
     (rest (first server-result))))
 
-(defun get-penelope-sentence-tokens (sentences)
+(defun get-penelope-sentence-tokens (sentences &key (model "en"))
   "Returns sentences."
-  (run-penelope-sentence-tokenizer sentences))
+  (run-penelope-sentence-tokenizer sentences :model model))
 
 ;;(run-penelope-sentence-tokenizer "Paul kicked the ball. Mary caught it.")
+
+
+;;;;;;;;;;;;;;;;;;;;;
+;; Lemmatizer  ;;
+;;;;;;;;;;;;;;;;;;;;;
+
+(defun run-penelope-lemmatizer (sentence &key (model "en"))
+  "Call the penelope server to get the lemmatize the words in the input sentence."
+  (unless (stringp sentence)
+    (if (listp sentence)
+      (setf sentence (format nil "~{~a~^ ~}" sentence))
+      (error "The function <run-penelope-lemmatizer> expects a string as input")))
+
+  (curl-json "https://www.fcg-net.org/penelope/nlp/lemma" (encode-json-to-string-for-shell `((:text . ,sentence) (:model . ,model)))))
+
+;;(run-penelope-lemmatizer "April is the fourth month of the year")
+
+(defun get-penelope-lemmas (sentence &key (model "en"))
+  "Takes a sentence as a string as input and returns a list with lists
+of strings, each list corresponding to a noun chunk."
+    (rest (assoc :lemmas (run-penelope-lemmatizer sentence :model model))))
+
+;;(get-penelope-lemmas "April is the fourth month of the year.")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Word embeddings
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun run-penelope-sentence-word-embeddings (sentence &key (model "en"))
+(defun run-penelope-sentence-word-embeddings (sentence &key (model "en") (source nil))
   "Call the penelope server to get the word embeddings of a single sentence."
   (unless (stringp sentence)
     (error "The function <run-penelope-sentence-word-embeddings> expects a string as input"))
   (let ((server-result
-         (curl-json "https://www.fcg-net.org/penelope/nlp/glove" (encode-json-to-string-for-shell `((:text . ,sentence) (:model . ,model))))))
-    (rest (first server-result))))
+         (if (eq source 'guardian-data)
+           (curl-json "https://www.fcg-net.org/penelope/word2vec/vec" (encode-json-to-string-for-shell `((:text . ,sentence))))
+           (curl-json "https://www.fcg-net.org/penelope/nlp/glove" (encode-json-to-string-for-shell `((:text . ,sentence) (:model . ,model)))))))
 
-;(run-penelope-sentence-word-embeddings "hello")
+    (if (eq source 'guardian-data)
+      (cond ((null (search " " sentence)) ;;single word
+             (list server-result))
+            ((equalp (type-of server-result) 'cl-user::simple-text-string) ;;"word 'x' not in vocabulary"
+             ;;remove out-of-vocabulary word
+             (let* ((server-result (cdr (assoc :result (decode-json-from-string
+                                                        (format nil "{\"result\":~a}"
+                                                                (cl-ppcre:regex-replace-all "\\" server-result "\\\\"))))))
+                    (out-of-voc-word-array (second (multiple-value-list (cl-ppcre:scan-to-strings "'(.+)'" server-result))))
+                    (out-of-voc-word (when out-of-voc-word-array (first (array->list out-of-voc-word-array)))))
+               (format t "Out of vocabulary word in Guardian word embeddings: ~a ~%" out-of-voc-word)
+               (setf sentence (string-replace sentence out-of-voc-word ""))
+               (setf sentence (list-of-strings->string (split-sequence:split-sequence #\Space sentence :remove-empty-subseqs t)))
+               (if sentence
+                 (run-penelope-sentence-word-embeddings sentence :source source)
+                 nil)))
+            (t
+             (rest (first server-result))))
+      (rest (first server-result)))))
+  
+;(run-penelope-sentence-word-embeddings "lock battle 2022à" :source 'guardian-data)
 
-(defun get-word-embeddings (sentence)
+(defun get-word-embeddings (sentence &key (source 'glove) (lemmatize? nil)) ;;or guardian-data
   "Get the word embeddings for a sentence in a '((word1 vector1) (word2 vector2)) format."
-  (let ((penelope-embeddings (run-penelope-sentence-word-embeddings sentence)))
+  (when lemmatize?
+    (setf sentence (list-of-strings->string (get-penelope-lemmas sentence))))
+  (let ((penelope-embeddings (run-penelope-sentence-word-embeddings sentence :source source)))
+    
     (loop for word-embedding in penelope-embeddings
           for token = (rest (assoc :token word-embedding))
           for vector = (rest (assoc :vector word-embedding))
           collect (list token vector))))
 
-;(get-word-embeddings "hello world")
+;(get-word-embeddings "hello world" :source 'glove)
+;(get-word-embeddings "hello world" :source 'guardian-data)
 
-(defun get-word-similarity (word1 word2)
+(defun get-word-similarity (word1 word2 &key (source 'glove) (lemmatize? nil)) 
   "Calculates the cosine similarity between two words based on the word embeddings from Glove."
-  (let ((vector1 (second (first (get-word-embeddings word1))))
-        (vector2 (second (first (get-word-embeddings word2)))))
+  (let ((vector1 (second (first (get-word-embeddings word1 :source source :lemmatize? lemmatize?))))
+        (vector2 (second (first (get-word-embeddings word2 :source source :lemmatize? lemmatize?)))))
     (cosine-similarity vector1 vector2)))
 
-;;(get-word-similarity "boy" "banana")
+;;(get-word-similarity "boy" "banana" :source 'glove)
 
-(defun get-phrase-similarity (phrase1 phrase2)
+(defun get-phrase-similarity (phrase1 phrase2 &key (source 'glove) (lemmatize? nil))
   ;;multiply? pretty girl vs handsome boy
-  (let* ((vectors-for-phrase-1 (mapcar #'(lambda (word)
-                                           (second (first (get-word-embeddings word))))
-                                       (split-sequence:split-sequence #\Space phrase1)))
+  (let* ((vectors-for-phrase-1
+          (mapcar #'(lambda (word)
+                      (second (first (get-word-embeddings word :source source :lemmatize? lemmatize?))))
+                  (split-sequence:split-sequence #\Space phrase1)))
          (vector1 (utils::multiply-list-of-vectors vectors-for-phrase-1))
-         (vectors-for-phrase-2 (mapcar #'(lambda (word)
-                                           (second (first (get-word-embeddings word))))
-                                       (split-sequence:split-sequence #\Space phrase2)))
+         (vectors-for-phrase-2
+          (mapcar #'(lambda (word)
+                      (second (first (get-word-embeddings word :source source :lemmatize? lemmatize?))))
+                  (split-sequence:split-sequence #\Space phrase2)))
          (vector2 (utils::multiply-list-of-vectors vectors-for-phrase-2)))
     (utils::cosine-similarity vector1 vector2)))
 
-;;(get-phrase-similarity "handsome boy" "pretty girl")
+;;(get-phrase-similarity "Turnball" "Trump" :source 'guardian-data :lemmatize? t)
+;;(get-phrase-similarity "handsome boy" "pretty girl" :source 'glove)
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Preprocessing sentences
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(export '(sentence->bag-of-words))
+
+(defun sentence->bag-of-words (sentence &key lemmatize? (language "en"))
+  "Given a sentence as a string, this function turns it into a list of
+words (strings), optionally lemmatized. It does not conserve
+punctuation marks."
+    ;;1) remove punctuation
+    (setf sentence
+          (coerce (loop for char across sentence
+                        unless (member char '(#\, #\. #\" #\; #\- #\Tab #\Newline ;#\•
+                                                  ))
+                        collect char) 'string))
+
+    ;;2) lemmatize if needed, otherwise just tokenize
+    (if lemmatize?
+      (setf sentence
+            (get-penelope-lemmas sentence :model language))
+      (setf sentence
+            (get-penelope-tokens sentence :model language)))
+
+    sentence)
+

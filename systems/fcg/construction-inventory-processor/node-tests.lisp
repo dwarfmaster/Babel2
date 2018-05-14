@@ -219,7 +219,7 @@
   ;; Only do the updating in comprehension. Probably it is not necessary in formulation.
   (if (eql '-> (fcg-get-direction node))
     t
-    (let* ((form-predicates (get-updating-references node)) ;; By default, these are MEETS and PRECEDES.
+    (let* ((form-predicates (get-updating-references node))
            (transient-structure (set-self (fcg-get-transient-structure node))) ;; setting SELF to the resulting cfs
            (unit-structure (fcg-get-transient-unit-structure transient-structure))
            (root (get-root unit-structure))
@@ -267,7 +267,7 @@
   ;; Only do the updating in comprehension. Probably it is not necessary in formulation.
   (if (eql '-> (fcg-get-direction node))
     t
-    (let* ((form-predicates (get-updating-references node)) ;; By default, these are MEETS and PRECEDES.
+    (let* ((form-predicates (get-updating-references node))
            (transient-structure (set-self (fcg-get-transient-structure node))) ;; setting SELF to the resulting cfs
            (unit-structure (fcg-get-transient-unit-structure transient-structure))
            (root (get-root unit-structure))

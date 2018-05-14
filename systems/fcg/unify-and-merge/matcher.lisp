@@ -123,17 +123,13 @@ is returned, i.e. for example the contents of a struct is not checked."
   (declare (type symbol var) (type bindings bindings))
   (assoc var bindings))
 
-(defun lookup (var bindings &optional prev-bindings)
-  "Returns the value to which var is bound in bindings or NIL if it is unbound."
-  (declare (type symbol var) (type bindings bindings))
-  (let* ((binding (get-binding var bindings))
-         (binding-val (when binding (binding-val binding))))
-    (when binding-val
-      (if (or (not (variable-p binding-val))
-              (find binding-val prev-bindings))
-        binding-val
-        (lookup binding-val bindings (cons var prev-bindings))))))
-
+(defun lookup (var bindings)
+ "Returns the value to which var is bound in bindings or NIL if it is unbound."
+ (declare (type symbol var) (type bindings bindings))
+ (let* ((binding (get-binding var bindings)))
+   (if binding
+     (binding-val binding)
+     nil)))
 
 (defun extend-bindings (var val bindings)
   "Adds the binding of var to val to bindings."
@@ -182,12 +178,12 @@ is here in case we would like to change this."
 +fail+ is returned."
   (declare (type bindings bs1) (type bindings bs2))
   (cond ((or (fail? bs1) (fail? bs2))
-	 +fail+)
-	((no-bindings? bs1) bs2)
-	((no-bindings? bs2) bs1)
-	(t (loop for b in bs2 until (fail? bs1) do
-		 (setq bs1 (unify-simple (binding-var b) (binding-val b) bs1 :cxn-inventory cxn-inventory)))
-	   bs1)))
+         +fail+)
+        ((no-bindings? bs1) bs2)
+        ((no-bindings? bs2) bs1)
+        (t (loop for b in bs2 until (fail? bs1) do
+                 (setq bs1 (unify-simple (binding-var b) (binding-val b) bs1 :cxn-inventory cxn-inventory)))
+           bs1)))
 
 ;; 'bindings-list' ADT definition
 
@@ -377,9 +373,9 @@ occurs in x."
     (let ((binding (get-binding var new-bindings)))
       (cond ((fail? new-bindings) +fail+)
 	    (binding
-	     (unify-simple (binding-val binding) clean-x new-bindings :cxn-inventory cxn-inventory))
+             (unify-simple (binding-val binding) clean-x new-bindings :cxn-inventory cxn-inventory))
 	    ((and (variable-p x) (get-binding clean-x new-bindings))
-	     (unify-simple var (lookup clean-x bindings) new-bindings :cxn-inventory cxn-inventory))
+             (unify-simple var (lookup clean-x bindings) new-bindings :cxn-inventory cxn-inventory))
 	    ((and *occurs-check* (occurs-check var clean-x new-bindings))
 	     +fail+)
 	    (t (extend-bindings var clean-x new-bindings))))))

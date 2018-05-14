@@ -6,7 +6,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Loading the system
-(asdf:make :nlp-tools)
+(ql:quickload :nlp-tools)
 (in-package :nlp-tools)
 
 ;; Noun Chunking

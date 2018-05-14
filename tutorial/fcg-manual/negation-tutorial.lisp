@@ -1,4 +1,4 @@
-;; (asdf:operate 'asdf:load-op :fcg)
+;; (ql:quickload :fcg)
 
 (in-package :fcg)
 (activate-monitor trace-fcg)

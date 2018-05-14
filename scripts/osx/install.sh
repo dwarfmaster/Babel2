@@ -16,7 +16,7 @@ function home_settings {
 	NAME="$3"
 
 	# download and make usual replacements
-	(curl -s "https://github.com/EvolutionaryLinguisticsAssociation/Babel2/raw/master/scripts/osx/$NEWFILE" |
+	(curl -s "https://raw.githubusercontent.com/EvolutionaryLinguisticsAssociation/Babel2/master/scripts/osx/$NEWFILE" |
 	 sed -e "s|<USER>|`whoami`|g" |
 	 sed -e "s|<CCL>|`which ccl`|g" > "$NEWFILE")
 	ls "$OLDFILE"
@@ -149,7 +149,12 @@ fi
 echo
 
 echo "== 3: CCL Lisp compiler =="
-brew_install "ccl" "clozure-cl"
+## brew_install "ccl" "clozure-cl"
+curl -OL "https://github.com/Clozure/ccl/releases/download/v1.11.5/ccl-1.11.5-darwinx86.tar.gz"
+tar -xvzf ccl-1.11.5-darwinx86.tar.gz
+mv ./ccl/scripts/ccl /usr/local/bin/
+mv ./ccl/scripts/ccl64 /usr/local/bin/
+mv ./ccl/ /usr/local/src/
 echo
 
 
@@ -192,11 +197,6 @@ elif [ "$KEY" = 'L' -o "$KEY" = 'l' ]; then
 	echo "== 6: Lispworks settings =="
 	home_settings ".lispworks" "lispworks-babel" "Lispworks"
 	echo
-#elif [ "$KEY" = 'T' -o "$KEY" = 't']; then
-#	echo 
-#	echo "== 8: Sublime Text editor =="
-#	brew_cask_install "sublime-text" "sublime-text"
-#	echo
 else
 	echo
 	echo "== 6: Emacs editor =="
@@ -206,6 +206,7 @@ else
 	else
 		brew install emacs-mac
 		ln -s /usr/local/opt/emacs-mac/Emacs.app /Applications
+	fi
 	echo
 
 
@@ -242,13 +243,14 @@ if [ $? -eq 0 ]; then
 else
 	echo "Babel2 has not been found."
 	echo "You can download Babel2 as an archive or clone it from Git"
+	echo "To get the latest version, we recommend cloning from Git"
 	read -n1 -rsp "Press Z for the archive or C for the Git clone: " KEY
 	if [ "$KEY" = 'Z' -o "$KEY" = 'z' ]; then
 		echo "Downloading the archive"
-		(curl -OL https://github.com/EvolutionaryLinguisticsAssociation/Babel2/archive/v2.0.0.tar.gz &&
+		(curl -OL https://github.com/EvolutionaryLinguisticsAssociation/Babel2/archive/v2.0.6.tar.gz &&
 			mkdir ~/Babel2 &&
-			tar -xvzf v2.0.0.tar.gz -C ~/Babel2 --strip-components 1
-			rm v2.0.0.tar.gz)
+			tar -xvzf v2.0.6.tar.gz -C ~/Babel2 --strip-components 1
+			rm v2.0.6.tar.gz)
 		echo "Installed."
 	elif [ "$KEY" = 'C' -o "$KEY" = 'c' ]; then
 		echo "Cloning the git repository"
@@ -272,7 +274,8 @@ else
 	echo "Quicklisp has not been found"
 	echo "Installing..."
 	curl -O "https://beta.quicklisp.org/quicklisp.lisp"
-	ccl -l quicklisp.lisp -e "(quicklisp-quickstart:install)(ql:quickload :cl-ppcre)(ql:quickload :cl-who)(ccl:quit)"
+	echo "If CCL does not exit automaticlly, enter (ccl:quit)"
+	ccl -l quicklisp.lisp -e "(quicklisp-quickstart:install)(ql:quickload :cl-ppcre)(ql:quickload :cl-who)(quit)" -b
 	rm quicklisp.lisp
 	echo "Installed."
 fi
@@ -296,6 +299,16 @@ else
 	echo
 	echo
 fi
+echo
+
+echo "-- 11: Warning! =="
+echo "On some versions of mac OS, Apple has decided to disable local web servers by default."
+echo "In order to use the Babel2 web interface, this needs to be enabled again."
+echo "This can be done by following these instructions:"
+echo "---------------------------------------------"
+echo "https://discussions.apple.com/docs/DOC-12034"
+echo "---------------------------------------------"
+echo "After following these instructions, restart your machine to make sure the changes took place."
 echo
 
 

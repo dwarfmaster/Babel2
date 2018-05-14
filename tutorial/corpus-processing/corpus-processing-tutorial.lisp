@@ -6,8 +6,8 @@
 ;; Load grammar and corpus-processing system
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(asdf:operate 'asdf:load-op :dutch-vp)
-(asdf:operate 'asdf:load-op :corpus-processing)
+(ql:quickload :dutch-vp)
+(ql:quickload :corpus-processing)
 (in-package :dutch-vp)
 
 ;; Specify input and ouputfiles

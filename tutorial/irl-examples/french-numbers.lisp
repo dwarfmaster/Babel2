@@ -11,9 +11,9 @@
 ;;;;; supported by your lisp.
 ;;;;;
 
-(asdf:operate 'asdf:load-op :irl)
+(ql:quickload :irl)
 
-(asdf:operate 'asdf:load-op :fcg)
+(ql:quickload :fcg)
 
 (defpackage :french-numbers
   (:use :common-lisp :utils :monitors :web-interface :irl :fcg))

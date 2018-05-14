@@ -7,7 +7,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-;(asdf:operate 'asdf:load-op 'fcg)
+;(ql:quickload 'fcg)
 (in-package :fcg)
 
 ;;1. First create files for evaluating your grammar

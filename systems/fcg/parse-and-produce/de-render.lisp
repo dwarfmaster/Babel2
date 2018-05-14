@@ -121,15 +121,19 @@
           handle-form-predicate-in-de-render infer-before-constraints
           infer-all-constraints-from-boundaries))
 
-;; By default, it uses only the form predicates MEETS and PRECEDES
-;; ---------------------------------------------------------------
-(defun get-updating-references (&optional node-or-cxn-inventory)
+;; By default, it uses the form predicates MEETS, PRECEDES, FIELDS and FIRST
+;; -------------------------------------------------------------------------
+(defun get-updating-references (&optional node-or-cxn-inventory
+                                          (default-form-predicates '(meets precedes fields first)))
   "returns form-predicates from node or cxn-inventory"
   (let ((type (type-of node-or-cxn-inventory)))
-    (case type
-      (null '(meets precedes fields first))
-      (cip-node (get-configuration (construction-inventory node-or-cxn-inventory) :form-predicates))
-      (t (get-configuration node-or-cxn-inventory :form-predicates)))))
+    (or (case type
+          (null default-form-predicates)
+          (cip-node (get-configuration (construction-inventory node-or-cxn-inventory) :form-predicates))
+          (coupled-feature-structure (ignore-errors ;; Data slot may not exist
+                                       (get-data node-or-cxn-inventory :form-predicates)))
+          (t (get-configuration node-or-cxn-inventory :form-predicates)))
+        default-form-predicates)))
 
 ;; -------------------------------------------------------------------
 ;; METHOD: handle-form-predicate-in-de-render
@@ -187,6 +191,14 @@
   ;; inferences in comprehension. So we return nothing instead.
   (declare (ignore list-of-boundaries predicate))
   nil)
+
+(defmethod handle-form-predicate-in-de-render ((list-of-boundaries list) (predicate (eql 'adjacent)))
+  ;; Provides two predicates for every pair of adjacent units.
+  ;; E.g. "the mouse" -> ((adjacent the-unit mouse-unit scope) (adjacent mouse-unit the-unit scope))
+  (let ((adjacent-before-constraints (infer-before-constraints list-of-boundaries predicate #'=)))
+    (loop for form-constraint in adjacent-before-constraints
+          append `(,form-constraint
+                   ,(list predicate (third form-constraint) (second form-constraint) (make-var 'unit))))))
 
 (defmethod handle-form-predicate-in-de-render ((list-of-boundaries list) (predicate (eql 'first)))
   "Infer FIRST constraints based on SUBUNITS."

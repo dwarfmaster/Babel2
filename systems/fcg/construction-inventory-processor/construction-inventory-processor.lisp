@@ -470,7 +470,7 @@ mode ~a. Please check why it did not calculate a priority score." (get-configura
                                         (traverse-depth-first sibling :collect-fn #'(lambda (node)
                                                                               (when (fully-expanded? node)
                                                                                 (last-applied-construction node)))))
-                                :key #'name :test #'equalp))))
+                                :key #'identity :test #'equalp))))
       (find (name (last-applied-construction node)) cxns-in-sibling-paths :key #'name :test #'equalp))))
     
 (defmethod cip-enqueue ((node cip-node) (cip construction-inventory-processor)
@@ -727,7 +727,7 @@ added here. Preprocessing is only used in parsing currently."
 
 (defmethod produce ((meaning list) (construction-inventory construction-inventory)
                     &optional silent)
-  ;(set-hierarchy-feature (first (hierarchy-features construction-inventory)))
+  "Default produce method for a construction-inventory."
   (let ((initial-cfs (create-initial-structure 
 		      meaning 
 		      (get-configuration construction-inventory :create-initial-structure-mode))))
@@ -836,8 +836,12 @@ added here. Preprocessing is only used in parsing currently."
 ;; Utility functions
 ;; -----------------------------------------------------------------------------
 
-(export '(fcg-get-transient-structure fcg-get-direction fcg-get-applied-cxn fcg-get-transient-unit-structure fcg-extract-selected-form-constraints
-                                      fcg-extract-meanings solution-p))
+(export '(fcg-get-transient-structure
+          fcg-get-direction formulation-p comprehension-p
+          fcg-get-applied-cxn fcg-get-transient-unit-structure
+          fcg-extract-selected-form-constraints
+          fcg-extract-meanings
+          solution-p))
 
 (defun fcg-get-transient-structure (x &key (pick-cfs-fn #'car-resulting-cfs))
   "Find the transient structure in an object."
@@ -881,6 +885,14 @@ added here. Preprocessing is only used in parsing currently."
     (otherwise
      (error (format nil "Add a case for type ~a to #'fcg-get-direction."
                     (type-of x))))))
+
+(defun formulation-p (x)
+  "Returns T if we're in a formulation task."
+  (equal '-> (fcg-get-direction x)))
+
+(defun comprehension-p (x)
+  "Returns T if we're in a comprehension task."
+  (equal '<- (fcg-get-direction x)))
 
 (defun fcg-get-applied-cxn (x)
   "Return the construction that was applied."

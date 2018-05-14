@@ -184,6 +184,14 @@
 	(push unit result)))
     (nreverse result)))
 
+(export '(all-subunits))
+
+(defun all-subunits (unit structure)
+  (loop for subunit-name in (remove-special-operators (feature-value (get-subunits-feature unit)) +no-bindings+)
+        for subunit = (structure-unit structure subunit-name)
+        collect subunit
+        append (all-subunits subunit structure)))
+
 (export '(get-parent-unit))
 
 (defun get-parent-unit (unit structure)
@@ -414,7 +422,7 @@
 
 (export '(get-level-0-unit get-root remove-root-unit
 	  get-units-downto-level get-level-units check-hierarchy
-          get-root))
+          get-root fcg-get-boundaries root-p))
 
 (defun get-level-0-unit (structure)
   ;; although a very nice definition also not very performant

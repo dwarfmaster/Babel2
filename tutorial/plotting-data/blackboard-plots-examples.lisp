@@ -1,4 +1,4 @@
-(asdf:operate 'asdf:load-op :plot-raw-data)
+(ql:quickload :plot-raw-data)
 
 (in-package :plot-raw-data)
 

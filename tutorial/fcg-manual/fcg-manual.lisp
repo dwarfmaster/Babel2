@@ -25,7 +25,7 @@
 
 ;; This technical document describes the notational conventions for the current implementation of
 ;; Fluid Construction Grammar (FCG). The notation is based on the formalisation of FCG described
-;; in Steels (2015). It focusses on the implementation and therefore assumes you have read this
+;; in Steels (2017). It focusses on the implementation and therefore assumes you have read this
 ;; paper. For any questions, do not hesitate to contact us at fcg-mailing@ai.vub.ac.be
 ;; (visit https://ai.vub.ac.be/mailman/listinfo/fcg-mailing} to subscribe to the mailing list!.
 
@@ -35,14 +35,14 @@
 
 ;; Fluid Construction Grammar is released as a part of the Babel 2 framework and runs on Mac OSX,
 ;; Linux and Windows. Instructions for downloading and installing Babel 2 can be found at
-;; emergent-languages.org/Babel2.
+;; https://github.com/EvolutionaryLinguisticsAssociation/Babel2.
 
 ;; After having successfully installed Babel 2, you can use this manual in an interactive way.
 ;; Evaluate the following line to load the FCG package and to start the web-interface. Then, open
 ;; a web browser (preferrably Safari or Firefox) at http://localhost:8000. 
 
 ;; You have to evaluate these two lines every time you use FCG.
-(asdf:make :fcg)
+(ql:quickload :fcg)
 (in-package :fcg)
 (activate-monitor trace-fcg)
 
@@ -59,10 +59,7 @@
 ;; that it is initially empty (0 constructions). The construction-inventory is stored by default
 ;; in the local variable *fcg-constructions*.
 
-(def-fcg-constructions my-first-grammar
-  :fcg-configurations ((:node-tests :update-references :check-duplicate :restrict-nr-of-nodes)
-                       (:de-render-mode . :de-render-with-scope)
-                       (:render-mode . :render-with-scope)))
+(def-fcg-constructions my-first-grammar)
 
 ;; 3.2. Defining a construction
 ;; ----------------------------
@@ -71,19 +68,19 @@
 ;; easiest way to do this is by using the def-fcg-cxn macro. This macro takes the construction
 ;; name as first argument ('mouse-cxn' in the example below) and a representation of the construction
 ;; as a second argument. The representation of the construction consists of two parts. In the upper
-;; part, the contributing units (= Left-hand-side of a construction in Steels (2015)) of the construction
+;; part, the contributing units (= Left-hand-side of a construction in Steels (2017)) of the construction
 ;; are defined. In the following 'mouse-cxn', there is only one contributing unit, namely '?mouse-unit'.
 
 ;; Then, the arrow seperating the contributing part and the conditional part of the construction is
 ;; given by the symbol '<-'. Under the arrow, the conditional part of the construction (= Right-hand-side
-;; of the construction in Steels (2015)) is declared. The conditional part can at its turn consists of
+;; of the construction in Steels (2017)) is declared. The conditional part can at its turn consists of
 ;; different conditional units (but our example construction has only one). Every conditional unit consists
 ;; of the unit name and then two parts, the formulation-lock and the comprehension-lock. The formulation lock
 ;; is given immediately after the unit-name and is followed by the symbol '--'. Then, the comprehension lock
 ;; is declared and the unit is closed.
 
 ;; For requiring a feature to be present in the input and for relocating it to an other unit, you can put
-;; 'HASH' in front of the feature name. This correponds to the '#' symbol used in Steels (2015).
+;; 'HASH' in front of the feature name. This correponds to the '#' symbol used in Steels (2017).
 
 ;; Now you can evaluate the following 'mouse-cxn'. It will be added to the construction-inventory that we
 ;; have defined above.
@@ -143,7 +140,9 @@
              ((?np-unit
                (args ?x)
                (syn-cat (class referring-expression))
-               (subunits (?mouse-unit ?the-unit)))
+               (subunits (?mouse-unit ?the-unit))
+               (leftmost-unit ?the-unit)
+               (rightmost-unit ?mouse-unit))
               <-
               (?the-unit
                (sem-cat (sem-type referent))
@@ -157,7 +156,7 @@
                (syn-cat (class noun)))
               (?np-unit
                --
-               (HASH form ((meets ?the-unit ?mouse-unit ?np-unit))))))
+               (HASH form ((meets ?the-unit ?mouse-unit))))))
 
 ;; We can now use the 'mouse-cxn' 'the-cxn' and 'np-cxn in processing'. FCG is a bidirectional formalism
 ;; in the sense that it uses the same constructions and processing mechanisms for both directions. Evaluate
@@ -432,13 +431,15 @@
 ;; -------------------------
 
 (add-cxn (make-instance 'fcg-construction
-                        :name 'noun-phrase-cxn
+                        :name 'np-cxn
                         :contributing-part (list (make-instance 'contributing-unit
                                                                 :name '?noun-phrase
                                                                 :unit-structure '((args (?x))
                                                                                   (sem-cat (sem-class referring-expression))
                                                                                   (syn-cat (lex-class noun-phrase))
-                                                                                  (subunits (?article ?noun)))))
+                                                                                  (subunits (?article ?noun))
+                                                                                  (leftmost-unit ?article)
+                                                                                  (rightmost-unit ?noun))))
                         :conditional-part (list (make-instance 'conditional-unit
                                                                :name '?article
                                                                :formulation-lock '((args (?x))

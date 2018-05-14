@@ -65,6 +65,21 @@
   (when (top tree)
     (traverse (top tree) func)))
 
+(defgeneric traverse-bft (tree func &optional q &key &allow-other-keys)
+  (:documentation "Traverse the tree and evaluates the
+   function for every node. The traversal is breadth-first"))
+
+(defmethod traverse-bft ((node tree-node) (func function) &optional q &key &allow-other-keys)
+  (funcall func node)
+  (dolist (child (children node))
+    (pushend child q))
+  (when (not (null q))
+    (traverse-bft (pop q) func q)))
+
+(defmethod traverse-bft ((tree tree) (func function) &optional q &key &allow-other-keys)
+  (when (top tree)
+    (traverse-bft (top tree) func q)))
+     
 (defgeneric leaf? (node)
   (:documentation "Returns true if the node is a leaf"))
 (defmethod leaf? ((node tree-node))

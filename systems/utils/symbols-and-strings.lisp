@@ -175,13 +175,18 @@
           stringify
           remove-punctuation
           lisp->camel-case
-          camel-case->lisp))
+          camel-case->lisp
+          remove-newlines))
 
 (defun punctuation-p (char) (find char "*_.,;:`!?#-()\\\""))
 
 (defun remove-punctuation (string)
   "Replace punctuation with spaces in string."
   (substitute-if #\space #'punctuation-p string))
+
+(defun remove-newlines (string)
+  "removes newlines inside string"
+  (cl-ppcre:regex-replace-all "\\n" string ""))
 
 (defun downcase (str)
   (format nil "~(~a~)" str))

@@ -2,13 +2,12 @@
 
 (export '(speak recognise-words))
 
-(defmethod speak ((robot robot) speech &key)
+(defun speak (robot speech &key (speed 100))
   "Make the robot say something"
-  (nao-speak robot speech))
+  #+nao (nao-speak robot speech :speed speed))
 
-(defmethod recognise-words ((robot robot) words &key)
+(defun recognise-words (robot words)
   "Recognise the given list of words. To stop the speech recognition, touch the front of Nao's head"
-  (let ((subscriber (start-speech-recognition robot words)))
-    ; (sleep 10)
-    (when (detect-head-touch robot "Middle")
-      (stop-speech-recognition robot subscriber))))
+  #+nao (let ((subscriber (nao-start-speech-rec robot words)))
+          (when (nao-detect-touch robot :head :middle)
+            (nao-stop-speech-rec robot subscriber))))

@@ -16,8 +16,7 @@ function home_settings {
 	NAME="$3"
 
 	# download and make usual replacements
-	(wget -O "https://github.com/EvolutionaryLinguisticsAssociation/Babel2/raw/master/scripts/linux/$NEWFILE" |
-	# (wget -O - "http://emergent-languages.org/Babel2/downloads/linux/$NEWFILE" |
+	(wget -O - "https://raw.githubusercontent.com/EvolutionaryLinguisticsAssociation/Babel2/master/scripts/linux/$NEWFILE" |
 	 sed -e "s|<USER>|`whoami`|g" |
 	 sed -e "s|<CCL>|`which ccl`|g" > "$NEWFILE")
 	ls "$OLDFILE"
@@ -203,13 +202,16 @@ if [ $? -eq 0 ]; then
 else
 	echo "Babel2 has not been found."
 	echo "You can download Babel2 as a zip archive or clone it from Git"
+	echo "To get the latest version, we recommend cloning from Git"
 	read -n1 -rsp "Press Z for the zip archive or C for the Git clone: " KEY
 	if [ "$KEY" = 'Z' -o "$KEY" = 'z' ]; then
 		echo "Downloading the zip archive"
+		## curl -s https://api.github.com/repos/EvolutionaryLinguisticsAssociation/Babel2/tags | jq '.[0].zipball_url'
 		apt_install "unzip" "unzip"
-		(wget https://github.com/EvolutionaryLinguisticsAssociation/Babel2/archive/v2.0.0.zip &&
-			unzip v2.0.0.zip -d ~/Babel2 &&
-			rm v2.0.0.zip)
+		(wget https://github.com/EvolutionaryLinguisticsAssociation/Babel2/archive/v2.0.6.zip &&
+			unzip v2.0.6.zip -d ~/Babel2 &&
+			mv ~/Babel2/Babel2-2.0.6 ~/Babel2 &&
+			rm v2.0.6.zip)
 		echo "Installed."
 	elif [ "$KEY" = 'C' -o "$KEY" = 'c' ]; then
 		echo "Cloning the git repository"
@@ -231,8 +233,9 @@ if [ $? -eq 0 ]; then
 else
 	echo "Quicklisp has not been found"
 	echo "Installing..."
-	curl -O "https://beta.quicklisp.org/quicklisp.lisp"
-	ccl -l quicklisp.lisp -e "(quicklisp-quickstart:install)(ql:quickload :cl-ppcre)(ql:quickload :cl-who)(ccl:quit)"
+	wget -O - "https://beta.quicklisp.org/quicklisp.lisp" > "quicklisp.lisp"
+	echo "If CCL does not exit automaticlly, enter (ccl:quit)"
+	ccl -l quicklisp.lisp -e "(quicklisp-quickstart:install)(ql:quickload :cl-ppcre)(ql:quickload :cl-who)(quit)" -b
 	rm quicklisp.lisp
 	echo "Installed."
 fi

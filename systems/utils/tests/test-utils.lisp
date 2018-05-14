@@ -199,6 +199,44 @@
 
 ;; (test-tree)
 
+(defun make-test-tree ()
+  (let ((tree (make-instance 'tree))
+        (n1 (make-instance 'tree-node :id 1))
+        (n2 (make-instance 'tree-node :id 2))
+        (n3 (make-instance 'tree-node :id 3))
+        (n4 (make-instance 'tree-node :id 4))
+        (n5 (make-instance 'tree-node :id 5))
+        (n6 (make-instance 'tree-node :id 6)))
+    (add-node tree n1)
+    (add-node tree n2 :parent n1)
+    (add-node tree n3 :parent n1)
+    (add-node tree n4 :parent n3)
+    (add-node tree n6 :parent n3)
+    (add-node tree n5 :parent n4)
+    tree))
+
+;; Test tree:
+;;
+;;         1
+;;       /   \
+;;      3     2
+;;    /   \
+;;   6     4
+;;         |
+;;         5
+
+(deftest test-tree-traversal ()
+  (let ((tree (make-test-tree))
+        (dft-visits nil)
+        (bft-visits nil))
+    (traverse tree (lambda (node) (push (id node) dft-visits)))
+    (traverse-bft tree (lambda (node) (push (id node) bft-visits)))
+    (setf dft-visits (reverse dft-visits))
+    (setf bft-visits (reverse bft-visits))
+    (test-assert (equal dft-visits '(1 3 6 4 5 2)))
+    (test-assert (equal bft-visits '(1 3 2 6 4 5)))))
+
+;(test-tree-traversal)
 
 ;; ############################################################################
 ;; testing of misc-utils.lisp
