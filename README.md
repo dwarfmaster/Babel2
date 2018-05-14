@@ -10,8 +10,6 @@ The best place for Babel2 and FCG discussion is [the mailing list](https://githu
 
 ## Installation
 
-Babel2 is written completely in Common Lisp and has been tested with these Lisp implementations:
-
 ### Mac OS X or Linux
 
 Installation scripts are provided for both [Linux](https://github.com/EvolutionaryLinguisticsAssociation/Babel2/wiki/Installation-Script) and [Mac OS](https://github.com/EvolutionaryLinguisticsAssociation/Babel2/wiki/Installation-Script). These scripts will install all necessary tools for you to get started with Babel2 development.
@@ -20,11 +18,13 @@ If you don't want to install a Lisp environment by using the provided scripts, y
 
 ### Windows
 
-Currently, we do not have an installation script for Windows. This is work in progress. For now, you will have to set up a Lisp environment yourself. You can install everything manually in [Windows](https://github.com/EvolutionaryLinguisticsAssociation/Babel2/wiki/Windows-Installation), or use a [Virtual Machine](https://github.com/EvolutionaryLinguisticsAssociation/Babel2/wiki/VM-Installation).
+Currently, we do not have an installation script for Windows. This is work in progress. For now, you will have to set up a Lisp environment yourself. You can install everything manually in [Windows](https://github.com/EvolutionaryLinguisticsAssociation/Babel2/wiki/Windows-Installation).
 
 ## Getting Started
 
-A good starting point for learning Fluid Construction Grammar is the article "Basics of Fluid Construction Grammar" by Luc Steels, published in _Constructions and Frames_. You can download a draft of the article [here](https://www.fcg-net.org/wp-content/uploads/papers/basics-of-fcg.pdf). The web demonstration that supports the article is available [here](https://www.fcg-net.org/demos/basics-of-fcg/).
+The [FCG cookbook](https://github.com/EvolutionaryLinguisticsAssociation/Babel2/wiki) is a dynamic document hosting practical recipes for learning about common problems and solutions in the Babel2 framework. This ranges from installation and Lisp editing tools, over writing constructions to more advanced topics such as setting up your own FCG server, creating a web demonstration, etc.
+
+A good starting point for learning Fluid Construction Grammar is the article "Basics of Fluid Construction Grammar" by Luc Steels, published in _Constructions and Frames 9(2)_. You can download a draft of the article [here](https://www.fcg-net.org/wp-content/uploads/papers/basics-of-fcg.pdf). The web demonstration that supports the article is available [here](https://www.fcg-net.org/demos/basics-of-fcg/).
 
 We regularly organise tutorials on Babel2. Please check [our events page](http://fcg-net.org/events).
 
@@ -32,7 +32,7 @@ We regularly organise tutorials on Babel2. Please check [our events page](http:/
 
 Feel free to contribute to the Babel2 package! There are 2 ways to do so:
 
- 1. Reporting bugs
+ 1. Reporting problems by creating an issue
  2. Extending Babel2 using a pull request
 
 You can find more information in the [CONTRIBUTING](https://github.com/EvolutionaryLinguisticsAssociation/Babel2/blob/master/CONTRIBUTING.md) file.
