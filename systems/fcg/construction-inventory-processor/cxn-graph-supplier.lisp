@@ -335,6 +335,7 @@
 
 (defun dependency-graph-add-cxn (graph construction dir)
   "Add a construction (assumes there is no construction with its name) to the graph"
+  (when (gethash (name construction) (cxn-graph-cxns graph)) (return-from dependency-graph-add-cxn '()))
   (setf (gethash (name construction) (cxn-graph-edges graph)) nil)
   (loop for cxn-name being the hash-key of (cxn-graph-cxns graph)
      do (when (can-cause construction (gethash cxn-name (cxn-graph-cxns graph)) dir)
@@ -379,7 +380,41 @@
           )
     ))
     (setf (dep-graph-act-lst dga) (copy-list (dep-graph-act-init-lst dga)))
+    (with-open-file (stream "dga.dot" :direction :output :if-exists :supersede)
+      (format stream (dependency-graph-actives->graphviz dga)))
     dga
+  )
+
+(defun dependency-graph-actives->graphviz (dga)
+  "Return a description of the graph in the dot language"
+  (setq fstr (make-array '(0) :element-type 'base-char
+                              :fill-pointer 0 :adjustable t
+                         ))
+  (let ((make-id (lambda (s) (map 'string (lambda (c) (if (find c "-." :test #'char=)
+                                                          #\_
+                                                          c))
+                                          (symbol-name s))))
+        (graph (dep-graph-act-graph dga)))
+    (with-output-to-string (s fstr)
+        (format s "digraph cxn_graph {~%")
+        (loop for cxn-name in (dep-graph-act-init-lst dga)
+           do (format s "    node [shape = doubleoctagon]; ~A;~%" (funcall make-id cxn-name))
+           )
+        (format s "    node [shape = octagon];~%")
+        (loop for cxn-name being the hash-keys of (cxn-graph-cxns graph)
+           do (format s "    ~A [label=\"~A\"];~%" (funcall make-id cxn-name)
+                                                   (string-downcase cxn-name)
+                      )
+          )
+        (format s "~%")
+        (loop for cxn-name being the hash-keys of (cxn-graph-edges graph)
+           do (loop for nxt-name in (gethash cxn-name (cxn-graph-edges graph))
+                  do (format s "    ~A -> ~A;~%" (funcall make-id cxn-name)
+                                                 (funcall make-id nxt-name))
+                 )
+          )
+        (format s "}~%")))
+  fstr
   )
 
 ;; #########################################################
