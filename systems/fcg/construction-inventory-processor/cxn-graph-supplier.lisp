@@ -33,7 +33,8 @@
 
 (defun imply? (a b)
   "Heuristic that returns t if an element of a can be unified with an element of b"
-  (some (lambda (x) (member x b :test #'eq-elem)) a)
+  (and (consp a)
+       (some (lambda (x) (member x b :test #'eq-elem)) a))
   )
 
 (defun get-unit-name (a)
@@ -171,7 +172,7 @@
 
 (defun make-cxns-hash-table (cxns)
   "Create a hashtable binding construction names to the actual construction from a list of constructions"
-  (defvar cxns-hash-table (make-hash-table))
+  (defparameter cxns-hash-table (make-hash-table))
   (loop for cxn in cxns
      do (setf (gethash (name cxn) cxns-hash-table) cxn)
      )
@@ -225,9 +226,13 @@
 
 (defun root-feature->cxn-feature (feat)
   "Prefix feature by == if it is a cons"
-  (if (consp (car (cdr feat)))
-      (cons (car feat) (cons (cons '== (car (cdr feat))) nil))
-      feat)
+  (cond ((consp (car (cdr feat)))
+            (cons (car feat) (cons (cons '== (car (cdr feat))) nil)))
+        ((null (car (cdr feat)))
+            (cons (car feat) (cons (cons '== nil) nil)))
+        (t
+            feat)
+        )
   )
 
 (defun root-unit->cxn-unit (unit)
@@ -335,7 +340,7 @@
 
 (defun dependency-graph-add-cxn (graph construction dir)
   "Add a construction (assumes there is no construction with its name) to the graph"
-  (when (gethash (name construction) (cxn-graph-cxns graph)) (return-from dependency-graph-add-cxn '()))
+  (when (nth-value 1 (gethash (name construction) (cxn-graph-cxns graph))) (return-from dependency-graph-add-cxn '()))
   (setf (gethash (name construction) (cxn-graph-edges graph)) nil)
   (loop for cxn-name being the hash-key of (cxn-graph-cxns graph)
      do (when (can-cause construction (gethash cxn-name (cxn-graph-cxns graph)) dir)
