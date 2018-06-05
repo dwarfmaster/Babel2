@@ -37,123 +37,62 @@
        (some (lambda (x) (member x b :test #'eq-elem)) a))
   )
 
-(defun get-unit-name (a)
-  "Returns the name of a unit (if ROOT returns a variable)"
-  (if (listp (car a)) (car (cdr (car a)))
-      (if (eql (car a) 'ROOT) '?ROOT (car a)))
-  )
+(defgeneric feature-can-cause (a b type)
+  (:documentation "Heuristic that returns t if merging the feature a allows the feature b to match"))
 
-(defun get-unit-features (a)
-  "Returns the features of a unit"
-  (cdr a)
-  )
+(defmethod feature-can-cause (a b (type (eql 'sequence)))
+  (eq-list (car (cdr a)) (car cdr b)))
 
-(defun unitJ? (a)
-  "Tests if a is a J-unit"
-  (if (listp (car a)) (eql (car (car a)) 'J) nil)
-  )
+(defmethod feature-can-cause (a b (type (eql 'set)))
+  (imply? (car (cdr a)) (car (cdr b))))
 
-(defun unitRoot? (a)
-  "Tests if a is a ROOT unit"
-  (if (consp a) (eql (car a) 'ROOT) nil)
-  )
+(defmethod feature-can-cause (a b (type (eql 'set-of-predicate)))
+  (imply? (car (cdr a)) (car (cdr b))))
 
-(defun unit-unroot (a hashtable)
-  "If the unit is a root one, add to the hashtable a bind from the tag variable to the feature inside"
-  (if (and (consp a) (eql (car a) 'ROOT))
-      (setf (gethash (car (cdr (car (cdr a)))) hashtable)
-            (car (cdr (cdr (car (cdr a)))))
-            )
+(defmethod feature-can-cause (a b (type t))
+  (eq-elem (car (cdr a)) (car (cdr b))))
+
+(defmethod :around feature-can-cause (a b type)
+  (if (and (consp (car (cdr b)))
+           (eql (car (car (cdr b))) 'not))
       nil
-      )
-  )
+      (call-next-method)))
 
-(defun feature-can-cause (a b)
-  "Heuristic that returns t if merging the feature a allows the feature b to match"
-  (if (and (listp a) (listp b) (not (unitRoot? b)))
-      (let ((aname (symbol-name (car a)))
-            (bname (symbol-name (car b))))
-        (cond
-          ((not (string= aname bname))
-               nil)
-          ((and (not (listp (car (cdr a)))) (not (listp (car (cdr b)))))
-               (imply? (cdr a) (cdr b)))
-          ((and (listp (car (cdr a))) (listp (car (cdr b))))
-               (let ((aoper (car (car (cdr a))))
-                     (boper (car (car (cdr b)))))
-                 (cond
-                   ((eql boper '==0)        nil)
-                   ((not (eql aoper boper)) t)
-                   ((eql aoper '==)         (imply? (cdr (car (cdr a)))
-                                                    (cdr (car (cdr b)))))
-                   ((eql aoper '==p)        (imply? (cdr (car (cdr a)))
-                                                    (cdr (car (cdr b)))))
-                   ((eql aoper '==1)        (imply? (cdr (car (cdr a)))
-                                                    (cdr (car (cdr b)))))
-                   (t                       t)
-                   )
-                 ))
-          (t
-               t)
-          )
-        )
-      nil
-      )
-  )
+(defun unit-can-cause (unita unitb feature-types)
+  (let ((unita-name (car unita))
+        (unitb-name (car unitb)))
+    (if (string= unita-name unitb-name)
+        (feature-can-cause unita unitb (assoc unita-name feature-types))
+        nil)))
 
-(defun unit-can-cause (a b)
-  "Heuristic that returns t if merging the unit a allows the unit b to match"
-  (if (unitJ? b)
-        nil
-        (if (not (eq-elem (get-unit-name a) (get-unit-name b))) nil
-            (some (lambda (x) (some (lambda (y) (feature-can-cause x y))
-                               (get-unit-features b)))
-                  (get-unit-features a))
-            )
-        )
-  )
-
-(defun feature-structure-can-cause (a b)
+(defun structure-can-cause (a b feature-types)
   "Heuristic that returns t if merging the feature structure a allows the feature structure b to match"
-  (some (lambda (x) (some (lambda (y) (unit-can-cause x y)) b)) a)
-  )
+  (some (lambda (x) (some (lambda (y) (unit-can-cause x y feature-types)) b)) a))
 
-(defun replace-tag (unit hashtable)
-  "If an element of the unit is a key of the hashtable, replace it by the value associated"
-  (map 'list (lambda (x) (if (gethash x hashtable) (gethash x hashtable) x)) unit)
-  )
+(defun formulation-structure (fcg-cxn)
+  (map 'list #'formulation-lock (conditional-part fcg-cxn)))
 
-(defun unJ (unit)
-  (if (consp unit) (cons (get-unit-name unit) (cdr unit)) unit)
-  )
+(defun comprehension-structure (fcg-cxn)
+  (map 'list #'comprehension-lock (conditional-part fcg-cxn)))
 
-(defun feature-structure-unroot (a)
-  "Move root features to their respective J-units"
-  ;; Create a hash-table binding the tag variable to the feature of the root units
-  (defparameter tag-hash-table (make-hash-table))
-  (map 'list (lambda (x) (unit-unroot x tag-hash-table)) a)
-  ;; Replace tag variable by their content
-  (map 'list (lambda (unit) (replace-tag unit tag-hash-table))
-       ;; Make all units non-J
-       (map 'list #'unJ
-            ;; Remove root units
-            (remove-if #'unitRoot? a)))
-  )
+(defun match-structure (fcg-cxn dir)
+  (cond
+    ((eql dir 'parsing)    (formulation-structure   fcg-cxn))
+    ((eql dir '<-)         (formulation-structure   fcg-cxn))
+    ((eql dir 'production) (comprehension-structure fcg-cxn))
+    ((eql dir '->)         (comprehension-structure fcg-cxn))))
 
-(defun feature-structure-root? (a)
-  (some #'unitRoot? a)
-  )
+(defun prod-structure (fcg-cxn)
+  (map 'list #'unit-structure (contributing-part fcg-cxn)))
 
 (defun can-cause (a b dir)
   "Heuristic that returns t if merging the construction a allows the match pole (according to dir) of the construction b to match"
-  (consp
-    (or (feature-structure-can-cause (feature-structure-unroot (left-pole-structure a))
-                                     (pole-structure (match-pole b dir)))
-        (feature-structure-can-cause (feature-structure-unroot (right-pole-structure a))
-                                     (pole-structure (match-pole b dir)))
-        )
-    )
-  )
+  (let ((match (match-structure b dir))
+        (feats (feature-types a)))
+    (consp (or
+             (structure-can-cause (prod-structure a)          match feats)
+             (structure-can-cause (formulation-structure a)   match feats)
+             (structure-can-cause (comprehension-structure a) match feats)))))
 
 ;; #########################################################
 ;; cxn-dependency-graph
@@ -249,6 +188,7 @@
 
 (defun make-cxns-actives (cxns dir cfs)
   "List all constructions (by names) that have a root clause in their match pole (according to dir)"
+  (format t "~a" (root-feature-structure->cxn-feature-structure (left-pole-structure cfs)))
   (sort
     (loop for cxn in cxns
        when (or
@@ -274,14 +214,26 @@
     )
   )
 
-(defun make-cxn-dependency-graph (construction-inventory dir)
-  "Make a cxn-dependency-graph from a construction inventory"
+(defgeneric make-cxn-dependency-graph (construction-inventory dir)
+  (:documentation "Make a cxn-dependency-graph from a construction inventory"))
+
+(defmethod make-cxn-dependency-graph ((construction-inventory construction-inventory) dir)
   (let ((cxns (constructions construction-inventory)))
     (make-instance 'cxn-dependency-graph
                    :cxns    (make-cxns-hash-table cxns     )
                    :edges   (make-cxns-edges      cxns dir )
                    )
   ))
+
+(defmethod make-cxn-dependency-graph ((construction-inventory hashed-construction-set) dir)
+  
+   (let* ((cxns-hasht (constructions-hash-table construction-inventory))
+          (cxns       (loop for k being the hash-keys of cxns-hasht
+                            append (gethash k cxns-hasht))))
+    (make-instance 'cxn-dependency-graph
+                   :cxns    (make-cxns-hash-table cxns     )
+                   :edges   (make-cxns-edges      cxns dir )
+                   )))
 
 (defun cxn-dependency-graph->graphviz (graph)
   "Returns a description of the graph in the dot language"
