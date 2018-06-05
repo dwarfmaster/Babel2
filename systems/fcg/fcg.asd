@@ -41,7 +41,6 @@
     :serial t
     :components ((:file "construction-inventory-processor")
                  (:file "cxn-suppliers")
-                 (:file "cxn-graph-supplier")
                  (:file "node-tests")
                  (:file "goal-tests")))
    (:module monitoring
@@ -83,6 +82,9 @@
                  (:file "fcg-light-to-latex")
 		 (:file "processing-cxn-to-fcg-cxn")
                  (:file "tests")))
+   (:module extras
+    :serial t
+    :components ((:file "cxn-graph-supplier")))
    (:module meta-layer
     :serial t
     :components ((:file "fcg-meta-layer-lib")))

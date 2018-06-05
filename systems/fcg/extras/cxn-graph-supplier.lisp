@@ -4,6 +4,12 @@
 ;; can-cause
 ;; ---------------------------------------------------------
 
+(defgeneric can-cause (a b dir)
+  (:documentation "Heuristic that returns t if merging the construction a allows the match pole (according to dir) of the construction b to match"))
+
+(defgeneric initial? (root-cfs cxn dir)
+  (:documentation "Heuristic that returns t if the construction can match from the start, given the initial cfs and the direction"))
+
 (defun variable? (a)
   "Test if a is a symbol starting by ?"
   (if (symbolp a)
@@ -37,6 +43,10 @@
        (some (lambda (x) (member x b :test #'eq-elem)) a))
   )
 
+;; #########################################################
+;; can-cause for fcg-construction
+;; ---------------------------------------------------------
+
 (defgeneric feature-can-cause (a b type)
   (:documentation "Heuristic that returns t if merging the feature a allows the feature b to match"))
 
@@ -58,12 +68,14 @@
       nil
       (call-next-method)))
 
-(defun unit-can-cause (unita unitb feature-types)
-  (let ((unita-name (car unita))
-        (unitb-name (car unitb)))
-    (if (string= unita-name unitb-name)
-        (feature-can-cause unita unitb (assoc unita-name feature-types))
-        nil)))
+(defun unit-can-cause (unit_a unit_b feature-types)
+  (let ((unita (if (eql (car unit_a) 'hash) (cdr unit_a) unit_a))
+        (unitb (if (eql (car unit_b) 'hash) (cdr unit_b) unit_b)))
+    (let ((unita-name (car unita))
+          (unitb-name (car unitb)))
+      (if (string= unita-name unitb-name)
+          (feature-can-cause unita unitb (assoc unita-name feature-types))
+          nil))))
 
 (defun structure-can-cause (a b feature-types)
   "Heuristic that returns t if merging the feature structure a allows the feature structure b to match"
@@ -85,14 +97,192 @@
 (defun prod-structure (fcg-cxn)
   (map 'list #'unit-structure (contributing-part fcg-cxn)))
 
-(defun can-cause (a b dir)
-  "Heuristic that returns t if merging the construction a allows the match pole (according to dir) of the construction b to match"
+(defmethod can-cause ((a fcg-construction)
+                      (b fcg-construction)
+                      dir)
   (let ((match (match-structure b dir))
         (feats (feature-types a)))
     (consp (or
              (structure-can-cause (prod-structure a)          match feats)
              (structure-can-cause (formulation-structure a)   match feats)
              (structure-can-cause (comprehension-structure a) match feats)))))
+
+;; #########################################################
+;; initial for fcg-construction
+;; ---------------------------------------------------------
+
+(defun unit-negation (unit)
+  (and (consp unit) (eql (car unit) 'not)))
+
+(defun structure-only-negation (struct)
+  (every #'(lambda (x) (if (eql (car x) 'hash)
+                           (unit-negation (car (cdr (cdr x))))
+                           (unit-negation (car (cdr x)))
+                           )) struct))
+
+(defmethod initial? (root-cfs
+                     (cxn fcg-construction)
+                     dir)
+  (or (structure-only-negation (match-structure cxn dir))
+      (structure-can-cause (left-pole-structure root-cfs)  (match-structure cxn dir))
+      (structure-can-cause (right-pole-structure root-cfs) (match-structure cxn dir))))
+
+;; #########################################################
+;; can-cause for coupled-feature-structure
+;; ---------------------------------------------------------
+
+(defun get-unit-name (a)
+  "Returns the name of a unit (if ROOT returns a variable)"
+  (if (listp (car a)) (car (cdr (car a)))
+      (if (eql (car a) 'ROOT) '?ROOT (car a)))
+  )
+
+(defun get-unit-features (a)
+  "Returns the features of a unit"
+  (cdr a)
+  )
+
+(defun unitJ? (a)
+  "Tests if a is a J-unit"
+  (if (listp (car a)) (eql (car (car a)) 'J) nil)
+  )
+
+(defun unitRoot? (a)
+  "Tests if a is a ROOT unit"
+  (if (consp a) (eql (car a) 'ROOT) nil)
+  )
+
+(defun unit-unroot (a hashtable)
+  "If the unit is a root one, add to the hashtable a bind from the tag variable to the feature inside"
+  (if (and (consp a) (eql (car a) 'ROOT))
+      (setf (gethash (car (cdr (car (cdr a)))) hashtable)
+            (car (cdr (cdr (car (cdr a)))))
+            )
+      nil
+      )
+  )
+
+(defun feature-can-cause-cfs (a b)
+  "Heuristic that returns t if merging the feature a allows the feature b to match"
+  (if (and (listp a) (listp b) (not (unitRoot? b)))
+      (let ((aname (symbol-name (car a)))
+            (bname (symbol-name (car b))))
+        (cond
+          ((not (string= aname bname))
+               nil)
+          ((and (not (listp (car (cdr a)))) (not (listp (car (cdr b)))))
+               (imply? (cdr a) (cdr b)))
+          ((and (listp (car (cdr a))) (listp (car (cdr b))))
+               (let ((aoper (car (car (cdr a))))
+                     (boper (car (car (cdr b)))))
+                 (cond
+                   ((eql boper '==0)        nil)
+                   ((not (eql aoper boper)) t)
+                   ((eql aoper '==)         (imply? (cdr (car (cdr a)))
+                                                    (cdr (car (cdr b)))))
+                   ((eql aoper '==p)        (imply? (cdr (car (cdr a)))
+                                                    (cdr (car (cdr b)))))
+                   ((eql aoper '==1)        (imply? (cdr (car (cdr a)))
+                                                    (cdr (car (cdr b)))))
+                   (t                       t))))
+          (t
+               t)))
+      nil))
+
+(defun unit-can-cause-cfs (a b)
+  "Heuristic that returns t if merging the unit a allows the unit b to match"
+  (if (unitJ? b)
+        nil
+        (if (not (eq-elem (get-unit-name a) (get-unit-name b))) nil
+            (some (lambda (x) (some (lambda (y) (feature-can-cause-cfs x y))
+                               (get-unit-features b)))
+                  (get-unit-features a)))))
+
+(defun feature-structure-can-cause (a b)
+  "Heuristic that returns t if merging the feature structure a allows the feature structure b to match"
+  (some (lambda (x) (some (lambda (y) (unit-can-cause-cfs x y)) b)) a))
+
+(defun replace-tag (unit hashtable)
+  "If an element of the unit is a key of the hashtable, replace it by the value associated"
+  (map 'list (lambda (x) (if (gethash x hashtable) (gethash x hashtable) x)) unit))
+
+(defun unJ (unit)
+  (if (consp unit) (cons (get-unit-name unit) (cdr unit)) unit))
+
+(defun feature-structure-unroot (a)
+  "Move root features to their respective J-units"
+  ;; Create a hash-table binding the tag variable to the feature of the root units
+  (defparameter tag-hash-table (make-hash-table))
+  (map 'list (lambda (x) (unit-unroot x tag-hash-table)) a)
+  ;; Replace tag variable by their content
+  (map 'list (lambda (unit) (replace-tag unit tag-hash-table))
+       ;; Make all units non-J
+       (map 'list #'unJ
+            ;; Remove root units
+            (remove-if #'unitRoot? a))))
+
+(defun feature-structure-root? (a)
+  (some #'unitRoot? a))
+
+(defmethod can-cause ((a coupled-feature-structure)
+                      (b coupled-feature-structure)
+                      dir)
+  (consp
+    (or (feature-structure-can-cause (feature-structure-unroot (left-pole-structure a))
+                                     (pole-structure (match-pole b dir)))
+        (feature-structure-can-cause (feature-structure-unroot (right-pole-structure a))
+                                     (pole-structure (match-pole b dir))))))
+
+;; #########################################################
+;; initial for coupled-feature-structure
+;; ---------------------------------------------------------
+
+(defun unit-start? (a)
+  "Test if a unit can be immediately applied (either empty or only negation lock)"
+  (every #'feature-neg? (cdr a))
+  )
+
+(defun feature-structure-start? (a)
+  "Test if a feature structure can be applied from start (all units are J-units or empty or only negations)"
+  (every (lambda (u) (or (unitJ? u) (unit-start? u))) a)
+  )
+
+(defun root-feature->cxn-feature (feat)
+  "Prefix feature by == if it is a cons"
+  (cond ((consp (car (cdr feat)))
+            (cons (car feat) (cons (cons '== (car (cdr feat))) nil)))
+        ((null (car (cdr feat)))
+            (cons (car feat) (cons (cons '== nil) nil)))
+        (t
+            feat)
+        )
+  )
+
+(defun root-unit->cxn-unit (unit)
+  "Prefix all features by =="
+  (cons (car unit)
+        (map 'list #'root-feature->cxn-feature (cdr unit))
+        )
+  )
+
+(defun root-feature-structure->cxn-feature-structure (fs)
+  "Prefix all features by =="
+  (map 'list #'root-unit->cxn-unit fs)
+  )
+
+(defmethod initial? (root-cfs
+                     (cxn coupled-feature-structure)
+                     dir)
+  (or
+    (feature-structure-start? (pole-structure (match-pole cxn dir)))
+    (feature-structure-can-cause (root-feature-structure->cxn-feature-structure
+                                    (left-pole-structure root-cfs))
+                                 (feature-structure-unroot
+                                   (pole-structure (match-pole cxn dir))))
+    (feature-structure-can-cause (root-feature-structure->cxn-feature-structure
+                                    (right-pole-structure root-cfs))
+                                 (feature-structure-unroot
+                                   (pole-structure (match-pole cxn dir))))))
 
 ;; #########################################################
 ;; cxn-dependency-graph
@@ -153,93 +343,38 @@
       )
   )
 
-(defun unit-start? (a)
-  "Test if a unit can be immediately applied (either empty or only negation lock)"
-  (every #'feature-neg? (cdr a))
-  )
-
-(defun feature-structure-start? (a)
-  "Test if a feature structure can be applied from start (all units are J-units or empty or only negations)"
-  (every (lambda (u) (or (unitJ? u) (unit-start? u))) a)
-  )
-
-(defun root-feature->cxn-feature (feat)
-  "Prefix feature by == if it is a cons"
-  (cond ((consp (car (cdr feat)))
-            (cons (car feat) (cons (cons '== (car (cdr feat))) nil)))
-        ((null (car (cdr feat)))
-            (cons (car feat) (cons (cons '== nil) nil)))
-        (t
-            feat)
-        )
-  )
-
-(defun root-unit->cxn-unit (unit)
-  "Prefix all features by =="
-  (cons (car unit)
-        (map 'list #'root-feature->cxn-feature (cdr unit))
-        )
-  )
-
-(defun root-feature-structure->cxn-feature-structure (fs)
-  "Prefix all features by =="
-  (map 'list #'root-unit->cxn-unit fs)
-  )
-
 (defun make-cxns-actives (cxns dir cfs)
   "List all constructions (by names) that have a root clause in their match pole (according to dir)"
-  (format t "~a" (root-feature-structure->cxn-feature-structure (left-pole-structure cfs)))
+  (format t "Initial CFS : ~a <-> ~a~%" (left-pole-structure cfs) (right-pole-structure cfs))
+  (format t "CXNS : ~a~%" (type-of cxns))
   (sort
     (loop for cxn in cxns
-       when (or
-               (feature-structure-start? (pole-structure (match-pole cxn dir)))
-               (feature-structure-can-cause (root-feature-structure->cxn-feature-structure
-                                               (left-pole-structure cfs)
-                                              )
-                                            (feature-structure-unroot
-                                              (pole-structure (match-pole cxn dir))
-                                              )
-                                            )
-               (feature-structure-can-cause (root-feature-structure->cxn-feature-structure
-                                               (right-pole-structure cfs)
-                                              )
-                                            (feature-structure-unroot
-                                              (pole-structure (match-pole cxn dir))
-                                              )
-                                            )
-              )
-       collect (name cxn)
-       )
-    #'string<
-    )
-  )
+       do (format t "Testings ~a~%" cxn)
+       when (initial? cfs cxn dir)
+       collect (name cxn))
+    #'string<))
 
-(defgeneric make-cxn-dependency-graph (construction-inventory dir)
-  (:documentation "Make a cxn-dependency-graph from a construction inventory"))
+(defgeneric get-constructions (constructions-inventory))
 
-(defmethod make-cxn-dependency-graph ((construction-inventory construction-inventory) dir)
-  (let ((cxns (constructions construction-inventory)))
+(defmethod get-constructions ((construction-inventory construction-inventory))
+  (constructions construction-inventory))
+
+(defmethod get-constructions ((construction-inventory hashed-construction-set))
+  (let ((hasht (constructions-hash-table construction-inventory)))
+    (loop for k being the hash-keys of hasht
+          append (gethash k hasht))))
+
+(defun make-cxn-dependency-graph (construction-inventory dir)
+  "Make a cxn-dependency-graph from a construction inventory"
+  (let ((cxns (get-constructions construction-inventory)))
     (make-instance 'cxn-dependency-graph
                    :cxns    (make-cxns-hash-table cxns     )
-                   :edges   (make-cxns-edges      cxns dir )
-                   )
-  ))
-
-(defmethod make-cxn-dependency-graph ((construction-inventory hashed-construction-set) dir)
-  
-   (let* ((cxns-hasht (constructions-hash-table construction-inventory))
-          (cxns       (loop for k being the hash-keys of cxns-hasht
-                            append (gethash k cxns-hasht))))
-    (make-instance 'cxn-dependency-graph
-                   :cxns    (make-cxns-hash-table cxns     )
-                   :edges   (make-cxns-edges      cxns dir )
-                   )))
+                   :edges   (make-cxns-edges      cxns dir ))))
 
 (defun cxn-dependency-graph->graphviz (graph)
   "Returns a description of the graph in the dot language"
   (setq fstr (make-array '(0) :element-type 'base-char
-                              :fill-pointer 0 :adjustable t
-                         ))
+                              :fill-pointer 0 :adjustable t))
   (let ((make-id (lambda (s) (map 'string (lambda (c) (if (find c "-." :test #'char=)
                                                           #\_
                                                           c))
@@ -248,34 +383,24 @@
         (format s "digraph cxn_graph {~%")
         (loop for cxn-name being the hash-keys of (cxn-graph-cxns graph)
            do (format s "    ~A [label=\"~A\"];~%" (funcall make-id cxn-name)
-                                                   (string-downcase cxn-name)
-                      )
-          )
+                                                   (string-downcase cxn-name)))
         (format s "~%")
         (loop for cxn-name being the hash-keys of (cxn-graph-edges graph)
            do (loop for nxt-name in (gethash cxn-name (cxn-graph-edges graph))
                   do (format s "    ~A -> ~A;~%" (funcall make-id cxn-name)
-                                                 (funcall make-id nxt-name))
-                 )
-          )
-        (format s "}~%")
-      )
-    )
-  fstr
-  )
+                                                 (funcall make-id nxt-name))))
+        (format s "}~%")))
+  fstr)
 
 (defstruct (dependency-graph-supplier-data (:conc-name dep-graph-))
   parsing
-  production
-  )
+  production)
 
 (defun create-dependency-graph-supplier-data (construction-inventory)
   "Create the dependencies graphs in both directions"
   (make-dependency-graph-supplier-data
     :parsing (make-cxn-dependency-graph construction-inventory 'parsing)
-    :production (make-cxn-dependency-graph construction-inventory 'production)
-    )
-  )
+    :production (make-cxn-dependency-graph construction-inventory 'production)))
 
 (defun dependency-graph-remove-cxn (graph construction)
   "Remove a construction from the graph"
@@ -284,11 +409,7 @@
   (loop for cxn-name being the hash-key of (cxn-graph-edges graph)
      do (setf (gethash cxn-name (cxn-graph-edges graph))
               (remove (name construction)
-                      (gethash cxn-name (cxn-graph-edges graph))
-                      )
-              )
-    )
-  )
+                      (gethash cxn-name (cxn-graph-edges graph))))))
 
 (defun dependency-graph-add-cxn (graph construction dir)
   "Add a construction (assumes there is no construction with its name) to the graph"
@@ -304,17 +425,13 @@
           (setf (gethash cxn-name (cxn-graph-edges graph))
                 (insert-in-sorted-list (name construction)
                                        (gethash cxn-name
-                                                (cxn-graph-edges graph)))) 
-          )
-    )
-  (setf (gethash (name construction) (cxn-graph-cxns graph)) construction)
-  )
+                                                (cxn-graph-edges graph))))))
+  (setf (gethash (name construction) (cxn-graph-cxns graph)) construction))
 
 (defstruct (dependency-graph-actives (:conc-name dep-graph-act-))
   lst
   init-lst
-  graph
-  )
+  graph)
 
 (defun create-dependency-graph-actives (cip supplier-data)
     (defparameter dga (make-dependency-graph-actives
@@ -322,9 +439,9 @@
         '()
     :init-lst 
         (make-cxns-actives
-          (constructions (construction-inventory cip))
-          (direction     cip)
-          (initial-cfs   cip)
+          (get-constructions (construction-inventory cip))
+          (direction         cip)
+          (initial-cfs       cip)
           )
     :graph
         (let ((dir (direction cip)))
@@ -332,21 +449,16 @@
             ( (eql dir '<-)         (dep-graph-parsing supplier-data)    )
             ( (eql dir 'parsing)    (dep-graph-parsing supplier-data)    )
             ( (eql dir '->)         (dep-graph-production supplier-data) )
-            ( (eql dir 'production) (dep-graph-production supplier-data) )
-            )
-          )
-    ))
+            ( (eql dir 'production) (dep-graph-production supplier-data) )))))
     (setf (dep-graph-act-lst dga) (copy-list (dep-graph-act-init-lst dga)))
     (with-open-file (stream "dga.dot" :direction :output :if-exists :supersede)
       (format stream (dependency-graph-actives->graphviz dga)))
-    dga
-  )
+    dga)
 
 (defun dependency-graph-actives->graphviz (dga)
   "Return a description of the graph in the dot language"
   (setq fstr (make-array '(0) :element-type 'base-char
-                              :fill-pointer 0 :adjustable t
-                         ))
+                              :fill-pointer 0 :adjustable t))
   (let ((make-id (lambda (s) (map 'string (lambda (c) (if (find c "-." :test #'char=)
                                                           #\_
                                                           c))
@@ -355,24 +467,18 @@
     (with-output-to-string (s fstr)
         (format s "digraph cxn_graph {~%")
         (loop for cxn-name in (dep-graph-act-init-lst dga)
-           do (format s "    node [shape = doubleoctagon]; ~A;~%" (funcall make-id cxn-name))
-           )
+           do (format s "    node [shape = doubleoctagon]; ~A;~%" (funcall make-id cxn-name)))
         (format s "    node [shape = octagon];~%")
         (loop for cxn-name being the hash-keys of (cxn-graph-cxns graph)
            do (format s "    ~A [label=\"~A\"];~%" (funcall make-id cxn-name)
-                                                   (string-downcase cxn-name)
-                      )
-          )
+                                                   (string-downcase cxn-name)))
         (format s "~%")
         (loop for cxn-name being the hash-keys of (cxn-graph-edges graph)
            do (loop for nxt-name in (gethash cxn-name (cxn-graph-edges graph))
                   do (format s "    ~A -> ~A;~%" (funcall make-id cxn-name)
-                                                 (funcall make-id nxt-name))
-                 )
-          )
+                                                 (funcall make-id nxt-name))))
         (format s "}~%")))
-  fstr
-  )
+  fstr)
 
 ;; #########################################################
 ;; cxn-supplier
@@ -393,8 +499,7 @@
 (defmethod supplier-data-recompute ((cxn-inventory construction-inventory)
                                     (mode (eql :dependency-graph)))
   (declare (ignore mode))
-  (create-dependency-graph-supplier-data cxn-inventory)
-  )
+  (create-dependency-graph-supplier-data cxn-inventory))
 
 (defmethod create-gen-cxn-supplier ((cip construction-inventory-processor)
                                     (mode (eql :dependency-graph)))
@@ -408,9 +513,7 @@
     ((null l2) l1)
     ((string= (car l1) (car l2)) (cons (car l1) (union-ordered-list (cdr l1) (cdr l2))))
     ((string< (car l1) (car l2)) (cons (car l1) (union-ordered-list (cdr l1) l2      )))
-    (t                           (cons (car l2) (union-ordered-list l1       (cdr l2))))
-    )
-  )
+    (t                           (cons (car l2) (union-ordered-list l1       (cdr l2))))))
 
 (defun merge-into-actives (cxn-name actives)
   "Merge the children of cxn-name into the list of actives constructions"
@@ -428,12 +531,10 @@
     (make-dependency-graph-actives
       :lst  '()
       :init-lst (copy-list (dep-graph-act-init-lst actives))
-      :graph (dep-graph-act-graph actives)
-      ))
+      :graph (dep-graph-act-graph actives)))
   (when cxn-applied (merge-into-actives (name cxn-applied) nactives))
   (setf (dep-graph-act-lst nactives) (copy-list (dep-graph-act-init-lst nactives)))
-  nactives
-  )
+  nactives)
 
 (defmethod next-cxn ((cxn-supplier dependency-graph-actives) (node cip-node))
   (let ((cxn-name (pop (dep-graph-act-lst cxn-supplier))))
